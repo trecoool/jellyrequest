@@ -26,7 +26,7 @@ public class BanRepository
     public BanRepository(IApplicationPaths applicationPaths, ILogger<BanRepository> logger)
     {
         _logger = logger;
-        var dataPath = Path.Combine(applicationPaths.DataPath, "media-requests");
+        var dataPath = Path.Combine(applicationPaths.DataPath, "jellyrequest");
         _filePath = Path.Combine(dataPath, "bans.json");
         Directory.CreateDirectory(dataPath);
         LoadData();

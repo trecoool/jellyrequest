@@ -27,7 +27,7 @@ public class RequestsRepository
     public RequestsRepository(IApplicationPaths applicationPaths, ILogger<RequestsRepository> logger)
     {
         _logger = logger;
-        _dataPath = Path.Combine(applicationPaths.DataPath, "media-requests");
+        _dataPath = Path.Combine(applicationPaths.DataPath, "jellyrequest");
         _filePath = Path.Combine(_dataPath, "requests.json");
         Directory.CreateDirectory(_dataPath);
         LoadData();
