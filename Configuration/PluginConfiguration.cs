@@ -1,6 +1,6 @@
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.MediaRequests.Configuration;
+namespace JellyRequest.Configuration;
 
 public class PluginConfiguration : BasePluginConfiguration
 {

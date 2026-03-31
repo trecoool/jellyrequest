@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.MediaRequests.Data;
+using JellyRequest.Data;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.MediaRequests.Services;
+namespace JellyRequest.Services;
 
 public class CleanupService : IScheduledTask
 {

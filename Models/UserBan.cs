@@ -1,6 +1,6 @@
 using System;
 
-namespace Jellyfin.Plugin.MediaRequests.Models;
+namespace JellyRequest.Models;
 
 public class UserBan
 {

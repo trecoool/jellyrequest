@@ -5,11 +5,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.MediaRequests.Models;
+using JellyRequest.Models;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.MediaRequests.Data;
+namespace JellyRequest.Data;
 
 public class RequestsRepository
 {

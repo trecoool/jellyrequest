@@ -1,4 +1,4 @@
-namespace Jellyfin.Plugin.MediaRequests.Models;
+namespace JellyRequest.Models;
 
 public class RequestQuotaInfo
 {

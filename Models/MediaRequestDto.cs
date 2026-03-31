@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Jellyfin.Plugin.MediaRequests.Models;
+namespace JellyRequest.Models;
 
 public class MediaRequestDto
 {

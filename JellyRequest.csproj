@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>Jellyfin.Plugin.MediaRequests</RootNamespace>
-    <AssemblyName>Jellyfin.Plugin.MediaRequests</AssemblyName>
+    <RootNamespace>JellyRequest</RootNamespace>
+    <AssemblyName>JellyRequest</AssemblyName>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

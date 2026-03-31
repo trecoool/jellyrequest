@@ -5,16 +5,16 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Jellyfin.Data;
 using Jellyfin.Database.Implementations.Enums;
-using Jellyfin.Plugin.MediaRequests.Configuration;
-using Jellyfin.Plugin.MediaRequests.Data;
-using Jellyfin.Plugin.MediaRequests.Models;
+using JellyRequest.Configuration;
+using JellyRequest.Data;
+using JellyRequest.Models;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.MediaRequests.Api;
+namespace JellyRequest.Api;
 
 [ApiController]
 [Route("MediaRequests")]
