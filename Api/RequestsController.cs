@@ -1,0 +1,420 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Mime;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Jellyfin.Data;
+using Jellyfin.Database.Implementations.Enums;
+using Jellyfin.Plugin.MediaRequests.Configuration;
+using Jellyfin.Plugin.MediaRequests.Data;
+using Jellyfin.Plugin.MediaRequests.Models;
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Net;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Jellyfin.Plugin.MediaRequests.Api;
+
+[ApiController]
+[Route("MediaRequests")]
+[Produces(MediaTypeNames.Application.Json)]
+public class RequestsController : ControllerBase
+{
+    private readonly RequestsRepository _requestsRepo;
+    private readonly BanRepository _banRepo;
+    private readonly IUserManager _userManager;
+    private readonly IAuthorizationContext _authContext;
+
+    private static readonly Regex ImdbCodeRegex = new(@"^tt\d+$", RegexOptions.Compiled);
+    private static readonly string[] ValidStatuses = { "pending", "processing", "done", "rejected" };
+
+    public RequestsController(
+        RequestsRepository requestsRepo,
+        BanRepository banRepo,
+        IUserManager userManager,
+        IAuthorizationContext authContext)
+    {
+        _requestsRepo = requestsRepo;
+        _banRepo = banRepo;
+        _userManager = userManager;
+        _authContext = authContext;
+    }
+
+    private PluginConfiguration Config => Plugin.Instance?.Configuration ?? new PluginConfiguration();
+
+    private async Task<Guid> GetUserIdAsync()
+    {
+        var auth = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
+        return auth.UserId;
+    }
+
+    private async Task<bool> GetIsAdminAsync()
+    {
+        var auth = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
+        return auth.User?.HasPermission(PermissionKind.IsAdministrator) ?? false;
+    }
+
+    // === User Endpoints ===
+
+    [HttpPost]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<MediaRequest>> CreateRequest([FromBody] MediaRequestDto dto)
+    {
+        var config = Config;
+        if (!config.EnableRequests)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "Requests are disabled");
+        }
+
+        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var isAdmin = await GetIsAdminAsync().ConfigureAwait(false);
+
+        if (isAdmin && !config.EnableAdminRequests)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "Admin requests are disabled");
+        }
+
+        if (_banRepo.IsUserBanned(userId))
+        {
+            return BadRequest("You are banned from making requests");
+        }
+
+        if (config.MaxRequestsPerMonth > 0)
+        {
+            var count = _requestsRepo.GetUserCountThisMonth(userId);
+            if (count >= config.MaxRequestsPerMonth)
+            {
+                return BadRequest($"Monthly request limit reached ({config.MaxRequestsPerMonth})");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Title))
+        {
+            return BadRequest("Title is required");
+        }
+
+        if (config.RequestTypeRequired && config.RequestTypeEnabled && string.IsNullOrWhiteSpace(dto.Type))
+        {
+            return BadRequest("Type is required");
+        }
+
+        if (config.RequestNotesRequired && config.RequestNotesEnabled && string.IsNullOrWhiteSpace(dto.Notes))
+        {
+            return BadRequest("Notes are required");
+        }
+
+        if (config.RequestImdbCodeRequired && config.RequestImdbCodeEnabled && string.IsNullOrWhiteSpace(dto.ImdbCode))
+        {
+            return BadRequest("IMDB Code is required");
+        }
+
+        if (config.RequestImdbLinkRequired && config.RequestImdbLinkEnabled && string.IsNullOrWhiteSpace(dto.ImdbLink))
+        {
+            return BadRequest("IMDB Link is required");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ImdbCode) && !ImdbCodeRegex.IsMatch(dto.ImdbCode))
+        {
+            return BadRequest("IMDB Code must match format: tt1234567");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
+        }
+
+        var user = _userManager.GetUserById(userId);
+        var request = new MediaRequest
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Username = user?.Username ?? "Unknown",
+            Title = dto.Title,
+            Type = dto.Type,
+            Notes = dto.Notes,
+            CustomFields = dto.CustomFields,
+            ImdbCode = dto.ImdbCode,
+            ImdbLink = dto.ImdbLink,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await _requestsRepo.AddAsync(request).ConfigureAwait(false);
+
+        // Opportunistic cleanup
+        if (config.AutoDeleteRejectedDays > 0)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _requestsRepo.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best effort
+                }
+            });
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("My")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<MediaRequest>>> GetMyRequests()
+    {
+        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var requests = _requestsRepo.GetByUser(userId);
+        var config = Config;
+
+        Response.Headers["X-Request-Count"] = _requestsRepo.GetUserCountThisMonth(userId).ToString();
+        Response.Headers["X-Request-Limit"] = config.MaxRequestsPerMonth.ToString();
+
+        return Ok(requests);
+    }
+
+    [HttpGet("Quota")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<RequestQuotaInfo>> GetQuota()
+    {
+        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var config = Config;
+        var currentCount = _requestsRepo.GetUserCountThisMonth(userId);
+        var unlimited = config.MaxRequestsPerMonth <= 0;
+
+        return Ok(new RequestQuotaInfo
+        {
+            CurrentCount = currentCount,
+            MaxRequests = config.MaxRequestsPerMonth,
+            Remaining = unlimited ? -1 : Math.Max(0, config.MaxRequestsPerMonth - currentCount),
+            Unlimited = unlimited
+        });
+    }
+
+    [HttpPut("{id}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> EditRequest([FromRoute] Guid id, [FromBody] MediaRequestDto dto)
+    {
+        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var existing = _requestsRepo.GetById(id);
+
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
+        if (existing.UserId != userId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "You can only edit your own requests");
+        }
+
+        if (existing.Status != "pending")
+        {
+            return BadRequest("Can only edit pending requests");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Title))
+        {
+            return BadRequest("Title is required");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ImdbCode) && !ImdbCodeRegex.IsMatch(dto.ImdbCode))
+        {
+            return BadRequest("IMDB Code must match format: tt1234567");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
+        }
+
+        var result = await _requestsRepo.UpdateAsync(id, dto).ConfigureAwait(false);
+        return result != null ? Ok(result) : BadRequest("Could not update request");
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteOwnRequest([FromRoute] Guid id)
+    {
+        var userId = await GetUserIdAsync().ConfigureAwait(false);
+
+        var existing = _requestsRepo.GetById(id);
+
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
+        if (existing.UserId != userId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "You can only delete your own requests");
+        }
+
+        await _requestsRepo.DeleteAsync(id).ConfigureAwait(false);
+        return NoContent();
+    }
+
+    // === Admin Endpoints ===
+
+    [HttpGet]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<List<MediaRequest>> GetAllRequests()
+    {
+        return Ok(_requestsRepo.GetAll());
+    }
+
+    [HttpPost("{id}/Status")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> ChangeStatus(
+        [FromRoute] Guid id,
+        [FromQuery] string status,
+        [FromQuery] string? mediaLink = null,
+        [FromQuery] string? rejectionReason = null)
+    {
+        if (Array.IndexOf(ValidStatuses, status) < 0)
+        {
+            return BadRequest($"Status must be one of: {string.Join(", ", ValidStatuses)}");
+        }
+
+        var result = await _requestsRepo.UpdateStatusAsync(id, status, mediaLink, rejectionReason).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
+    }
+
+    [HttpPost("{id}/Snooze")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> Snooze(
+        [FromRoute] Guid id,
+        [FromQuery] DateTime snoozedUntil)
+    {
+        if (snoozedUntil <= DateTime.UtcNow)
+        {
+            return BadRequest("Snooze date must be in the future");
+        }
+
+        var result = await _requestsRepo.SnoozeAsync(id, snoozedUntil).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
+    }
+
+    [HttpPost("{id}/Unsnooze")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> Unsnooze([FromRoute] Guid id)
+    {
+        var result = await _requestsRepo.UnsnoozeAsync(id).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
+    }
+
+    [HttpDelete("Admin/{id}")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> AdminDelete([FromRoute] Guid id)
+    {
+        var deleted = await _requestsRepo.DeleteAsync(id).ConfigureAwait(false);
+        return deleted ? NoContent() : NotFound();
+    }
+
+    [HttpGet("Bans")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<List<UserBan>> GetBans()
+    {
+        return Ok(_banRepo.GetAll());
+    }
+
+    [HttpPost("Bans")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<UserBan>> BanUser(
+        [FromQuery] Guid userId,
+        [FromQuery] string? reason = null,
+        [FromQuery] DateTime? expiresAt = null)
+    {
+        if (_banRepo.IsUserBanned(userId))
+        {
+            return BadRequest("User is already banned");
+        }
+
+        var user = _userManager.GetUserById(userId);
+        var ban = new UserBan
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Username = user?.Username ?? "Unknown",
+            Reason = reason ?? string.Empty,
+            BannedAt = DateTime.UtcNow,
+            ExpiresAt = expiresAt
+        };
+
+        var result = await _banRepo.AddAsync(ban).ConfigureAwait(false);
+        return Ok(result);
+    }
+
+    [HttpDelete("Bans/{banId}")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> RemoveBan([FromRoute] Guid banId)
+    {
+        var removed = await _banRepo.RemoveAsync(banId).ConfigureAwait(false);
+        return removed ? NoContent() : NotFound();
+    }
+
+    // === Public ===
+
+    [HttpGet("Config")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult GetConfig()
+    {
+        var config = Config;
+        return Ok(new
+        {
+            config.EnableRequests,
+            config.MaxRequestsPerMonth,
+            config.RequestWindowTitle,
+            config.RequestWindowDescription,
+            config.RequestSubmitButtonText,
+            config.RequestTitleLabel,
+            config.RequestTitlePlaceholder,
+            config.RequestTypeEnabled,
+            config.RequestTypeRequired,
+            config.RequestTypeLabel,
+            config.RequestNotesEnabled,
+            config.RequestNotesRequired,
+            config.RequestNotesLabel,
+            config.RequestNotesPlaceholder,
+            config.RequestImdbCodeEnabled,
+            config.RequestImdbCodeRequired,
+            config.RequestImdbCodeLabel,
+            config.RequestImdbCodePlaceholder,
+            config.RequestImdbLinkEnabled,
+            config.RequestImdbLinkRequired,
+            config.RequestImdbLinkLabel,
+            config.RequestImdbLinkPlaceholder,
+            config.CustomRequestFields
+        });
+    }
+}

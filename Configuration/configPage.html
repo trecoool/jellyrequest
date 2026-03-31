@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Media Requests</title>
+</head>
+<body>
+    <div id="MediaRequestsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+         data-require="emby-input,emby-button,emby-checkbox,emby-textarea">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="MediaRequestsConfigForm">
+                    <!-- General -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">General</h2>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="EnableRequests" name="EnableRequests" type="checkbox" is="emby-checkbox" />
+                                <span>Enable Requests</span>
+                            </label>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="EnableAdminRequests" name="EnableAdminRequests" type="checkbox" is="emby-checkbox" />
+                                <span>Allow admins to submit requests</span>
+                            </label>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxRequestsPerMonth">Max Requests Per Month (0 = unlimited)</label>
+                            <input id="MaxRequestsPerMonth" name="MaxRequestsPerMonth" type="number" is="emby-input" min="0" step="1" />
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AutoDeleteRejectedDays">Auto-delete rejected requests after N days (0 = never)</label>
+                            <input id="AutoDeleteRejectedDays" name="AutoDeleteRejectedDays" type="number" is="emby-input" min="0" step="1" />
+                        </div>
+                    </div>
+
+                    <!-- Form Customization -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Form Customization</h2>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestWindowTitle">Window Title</label>
+                            <input id="RequestWindowTitle" name="RequestWindowTitle" type="text" is="emby-input" />
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestWindowDescription">Window Description</label>
+                            <input id="RequestWindowDescription" name="RequestWindowDescription" type="text" is="emby-input" />
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestSubmitButtonText">Submit Button Text</label>
+                            <input id="RequestSubmitButtonText" name="RequestSubmitButtonText" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Field: Title -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Title Field</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestTitleLabel">Label</label>
+                            <input id="RequestTitleLabel" name="RequestTitleLabel" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestTitlePlaceholder">Placeholder</label>
+                            <input id="RequestTitlePlaceholder" name="RequestTitlePlaceholder" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Field: Type -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Type Field</h2>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestTypeEnabled" name="RequestTypeEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Enabled</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestTypeRequired" name="RequestTypeRequired" type="checkbox" is="emby-checkbox" />
+                                <span>Required</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestTypeLabel">Label</label>
+                            <input id="RequestTypeLabel" name="RequestTypeLabel" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Field: Notes -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Notes Field</h2>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestNotesEnabled" name="RequestNotesEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Enabled</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestNotesRequired" name="RequestNotesRequired" type="checkbox" is="emby-checkbox" />
+                                <span>Required</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestNotesLabel">Label</label>
+                            <input id="RequestNotesLabel" name="RequestNotesLabel" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestNotesPlaceholder">Placeholder</label>
+                            <input id="RequestNotesPlaceholder" name="RequestNotesPlaceholder" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Field: IMDB Code -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">IMDB Code Field</h2>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestImdbCodeEnabled" name="RequestImdbCodeEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Enabled</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestImdbCodeRequired" name="RequestImdbCodeRequired" type="checkbox" is="emby-checkbox" />
+                                <span>Required</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestImdbCodeLabel">Label</label>
+                            <input id="RequestImdbCodeLabel" name="RequestImdbCodeLabel" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestImdbCodePlaceholder">Placeholder</label>
+                            <input id="RequestImdbCodePlaceholder" name="RequestImdbCodePlaceholder" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Field: IMDB Link -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">IMDB Link Field</h2>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestImdbLinkEnabled" name="RequestImdbLinkEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Enabled</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestImdbLinkRequired" name="RequestImdbLinkRequired" type="checkbox" is="emby-checkbox" />
+                                <span>Required</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestImdbLinkLabel">Label</label>
+                            <input id="RequestImdbLinkLabel" name="RequestImdbLinkLabel" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestImdbLinkPlaceholder">Placeholder</label>
+                            <input id="RequestImdbLinkPlaceholder" name="RequestImdbLinkPlaceholder" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
+                    <!-- Custom Fields -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Custom Fields</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomRequestFields">Custom Fields JSON</label>
+                            <textarea id="CustomRequestFields" name="CustomRequestFields" is="emby-textarea"
+                                      rows="4" placeholder='[{"name":"Priority","placeholder":"Low/Medium/High","required":false}]'></textarea>
+                            <div class="fieldDescription">JSON array of custom fields. Each field has: name, placeholder, required.</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var MediaRequestsConfig = {
+                pluginUniqueId: 'b7d92e15-3f4a-48c1-a6e5-9d0b8c7f1e23'
+            };
+
+            var configFields = [
+                'EnableRequests', 'EnableAdminRequests', 'MaxRequestsPerMonth', 'AutoDeleteRejectedDays',
+                'RequestWindowTitle', 'RequestWindowDescription', 'RequestSubmitButtonText',
+                'RequestTitleLabel', 'RequestTitlePlaceholder',
+                'RequestTypeEnabled', 'RequestTypeRequired', 'RequestTypeLabel',
+                'RequestNotesEnabled', 'RequestNotesRequired', 'RequestNotesLabel', 'RequestNotesPlaceholder',
+                'RequestImdbCodeEnabled', 'RequestImdbCodeRequired', 'RequestImdbCodeLabel', 'RequestImdbCodePlaceholder',
+                'RequestImdbLinkEnabled', 'RequestImdbLinkRequired', 'RequestImdbLinkLabel', 'RequestImdbLinkPlaceholder',
+                'CustomRequestFields'
+            ];
+
+            var checkboxFields = [
+                'EnableRequests', 'EnableAdminRequests',
+                'RequestTypeEnabled', 'RequestTypeRequired',
+                'RequestNotesEnabled', 'RequestNotesRequired',
+                'RequestImdbCodeEnabled', 'RequestImdbCodeRequired',
+                'RequestImdbLinkEnabled', 'RequestImdbLinkRequired'
+            ];
+
+            var intFields = ['MaxRequestsPerMonth', 'AutoDeleteRejectedDays'];
+
+            document.querySelector('#MediaRequestsConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(MediaRequestsConfig.pluginUniqueId).then(function (config) {
+                        configFields.forEach(function (field) {
+                            var el = document.querySelector('#' + field);
+                            if (!el) return;
+                            if (checkboxFields.indexOf(field) >= 0) {
+                                el.checked = config[field];
+                            } else {
+                                el.value = config[field];
+                            }
+                        });
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#MediaRequestsConfigForm')
+                .addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(MediaRequestsConfig.pluginUniqueId).then(function (config) {
+                        configFields.forEach(function (field) {
+                            var el = document.querySelector('#' + field);
+                            if (!el) return;
+                            if (checkboxFields.indexOf(field) >= 0) {
+                                config[field] = el.checked;
+                            } else if (intFields.indexOf(field) >= 0) {
+                                config[field] = parseInt(el.value, 10) || 0;
+                            } else {
+                                config[field] = el.value;
+                            }
+                        });
+                        ApiClient.updatePluginConfiguration(MediaRequestsConfig.pluginUniqueId, config).then(function () {
+                            Dashboard.processPluginConfigurationUpdateResult();
+                        });
+                    });
+                    return false;
+                });
+        </script>
+    </div>
+</body>
+</html>
