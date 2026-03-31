@@ -43,16 +43,9 @@ public class RequestsController : ControllerBase
 
     private PluginConfiguration Config => Plugin.Instance?.Configuration ?? new PluginConfiguration();
 
-    private async Task<Guid> GetUserIdAsync()
+    private async Task<AuthorizationInfo> GetAuthInfoAsync()
     {
-        var auth = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
-        return auth.UserId;
-    }
-
-    private async Task<bool> GetIsAdminAsync()
-    {
-        var auth = await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
-        return auth.User?.HasPermission(PermissionKind.IsAdministrator) ?? false;
+        return await _authContext.GetAuthorizationInfo(HttpContext).ConfigureAwait(false);
     }
 
     // === User Endpoints ===
@@ -70,8 +63,9 @@ public class RequestsController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, "Requests are disabled");
         }
 
-        var userId = await GetUserIdAsync().ConfigureAwait(false);
-        var isAdmin = await GetIsAdminAsync().ConfigureAwait(false);
+        var auth = await GetAuthInfoAsync().ConfigureAwait(false);
+        var userId = auth.UserId;
+        var isAdmin = auth.User?.HasPermission(PermissionKind.IsAdministrator) ?? false;
 
         if (isAdmin && !config.EnableAdminRequests)
         {
@@ -145,20 +139,9 @@ public class RequestsController : ControllerBase
 
         var result = await _requestsRepo.AddAsync(request).ConfigureAwait(false);
 
-        // Opportunistic cleanup
         if (config.AutoDeleteRejectedDays > 0)
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _requestsRepo.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Best effort
-                }
-            });
+            await _requestsRepo.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
         }
 
         return Ok(result);
@@ -169,7 +152,7 @@ public class RequestsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<MediaRequest>>> GetMyRequests()
     {
-        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
         var requests = _requestsRepo.GetByUser(userId);
         var config = Config;
 
@@ -184,7 +167,7 @@ public class RequestsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<RequestQuotaInfo>> GetQuota()
     {
-        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
         var config = Config;
         var currentCount = _requestsRepo.GetUserCountThisMonth(userId);
         var unlimited = config.MaxRequestsPerMonth <= 0;
@@ -206,7 +189,7 @@ public class RequestsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MediaRequest>> EditRequest([FromRoute] Guid id, [FromBody] MediaRequestDto dto)
     {
-        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
         var existing = _requestsRepo.GetById(id);
 
         if (existing == null)
@@ -250,7 +233,7 @@ public class RequestsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteOwnRequest([FromRoute] Guid id)
     {
-        var userId = await GetUserIdAsync().ConfigureAwait(false);
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
 
         var existing = _requestsRepo.GetById(id);
 
