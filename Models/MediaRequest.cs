@@ -32,5 +32,7 @@ public class MediaRequest
 
     public string ImdbLink { get; set; } = string.Empty;
 
+    public string Year { get; set; } = string.Empty;
+
     public DateTime? SnoozedUntil { get; set; }
 }

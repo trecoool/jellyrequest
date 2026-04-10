@@ -21,4 +21,7 @@ public class MediaRequestDto
 
     [MaxLength(500)]
     public string ImdbLink { get; set; } = string.Empty;
+
+    [MaxLength(4)]
+    public string Year { get; set; } = string.Empty;
 }

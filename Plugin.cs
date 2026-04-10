@@ -12,6 +12,12 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
     public static Plugin? Instance { get; private set; }
 
+    // Per-startup cache-bust token. Regenerated each time the plugin assembly
+    // is loaded (i.e. each Jellyfin restart). Both ScriptInjector and
+    // ScriptInjectionMiddleware append this to the jellyrequest.js URL so
+    // browsers are forced to re-fetch the script after every DLL deploy.
+    public static readonly string CacheBustToken = Guid.NewGuid().ToString("N").Substring(0, 8);
+
     public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
         : base(applicationPaths, xmlSerializer)
     {

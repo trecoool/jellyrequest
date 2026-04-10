@@ -171,6 +171,7 @@ public class RequestsRepository
             request.CustomFields = dto.CustomFields;
             request.ImdbCode = dto.ImdbCode;
             request.ImdbLink = dto.ImdbLink;
+            request.Year = dto.Year;
         }
 
         await SaveDataAsync().ConfigureAwait(false);

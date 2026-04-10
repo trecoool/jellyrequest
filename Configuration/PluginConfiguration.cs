@@ -59,6 +59,15 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public string RequestImdbLinkPlaceholder { get; set; } = string.Empty;
 
+    // === Year field ===
+    public bool RequestYearEnabled { get; set; } = true;
+
+    public bool RequestYearRequired { get; set; } = false;
+
+    public string RequestYearLabel { get; set; } = string.Empty;
+
+    public string RequestYearPlaceholder { get; set; } = string.Empty;
+
     // === Custom Fields ===
     public string CustomRequestFields { get; set; } = string.Empty;
 }

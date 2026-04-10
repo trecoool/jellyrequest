@@ -27,6 +27,7 @@ public class RequestsController : ControllerBase
     private readonly IAuthorizationContext _authContext;
 
     private static readonly Regex ImdbCodeRegex = new(@"^tt\d+$", RegexOptions.Compiled);
+    private static readonly Regex YearRegex = new(@"^\d{4}$", RegexOptions.Compiled);
     private static readonly string[] ValidStatuses = { "pending", "processing", "done", "rejected" };
 
     public RequestsController(
@@ -111,6 +112,11 @@ public class RequestsController : ControllerBase
             return BadRequest("IMDB Link is required");
         }
 
+        if (config.RequestYearRequired && config.RequestYearEnabled && string.IsNullOrWhiteSpace(dto.Year))
+        {
+            return BadRequest("Year is required");
+        }
+
         if (!string.IsNullOrWhiteSpace(dto.ImdbCode) && !ImdbCodeRegex.IsMatch(dto.ImdbCode))
         {
             return BadRequest("IMDB Code must match format: tt1234567");
@@ -119,6 +125,11 @@ public class RequestsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Year) && !YearRegex.IsMatch(dto.Year))
+        {
+            return BadRequest("Year must be 4 digits");
         }
 
         var user = _userManager.GetUserById(userId);
@@ -133,6 +144,7 @@ public class RequestsController : ControllerBase
             CustomFields = dto.CustomFields,
             ImdbCode = dto.ImdbCode,
             ImdbLink = dto.ImdbLink,
+            Year = dto.Year,
             Status = "pending",
             CreatedAt = DateTime.UtcNow
         };
@@ -220,6 +232,11 @@ public class RequestsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Year) && !YearRegex.IsMatch(dto.Year))
+        {
+            return BadRequest("Year must be 4 digits");
         }
 
         var result = await _requestsRepo.UpdateAsync(id, dto).ConfigureAwait(false);
@@ -397,7 +414,28 @@ public class RequestsController : ControllerBase
             config.RequestImdbLinkRequired,
             config.RequestImdbLinkLabel,
             config.RequestImdbLinkPlaceholder,
+            config.RequestYearEnabled,
+            config.RequestYearRequired,
+            config.RequestYearLabel,
+            config.RequestYearPlaceholder,
             config.CustomRequestFields
         });
+    }
+
+    [HttpGet("jellyrequest.js")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetScript()
+    {
+        var assembly = typeof(RequestsController).Assembly;
+        var resourceName = "JellyRequest.Web.jellyrequest.js";
+        var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream == null)
+        {
+            return NotFound();
+        }
+
+        return File(stream, "application/javascript");
     }
 }

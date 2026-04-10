@@ -167,6 +167,31 @@
                         </div>
                     </div>
 
+                    <!-- Field: Year -->
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Year Field</h2>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestYearEnabled" name="RequestYearEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Enabled</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer">
+                            <label class="emby-checkbox-label">
+                                <input id="RequestYearRequired" name="RequestYearRequired" type="checkbox" is="emby-checkbox" />
+                                <span>Required</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestYearLabel">Label</label>
+                            <input id="RequestYearLabel" name="RequestYearLabel" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestYearPlaceholder">Placeholder</label>
+                            <input id="RequestYearPlaceholder" name="RequestYearPlaceholder" type="text" is="emby-input" />
+                        </div>
+                    </div>
+
                     <!-- Custom Fields -->
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Custom Fields</h2>
@@ -200,6 +225,7 @@
                 'RequestNotesEnabled', 'RequestNotesRequired', 'RequestNotesLabel', 'RequestNotesPlaceholder',
                 'RequestImdbCodeEnabled', 'RequestImdbCodeRequired', 'RequestImdbCodeLabel', 'RequestImdbCodePlaceholder',
                 'RequestImdbLinkEnabled', 'RequestImdbLinkRequired', 'RequestImdbLinkLabel', 'RequestImdbLinkPlaceholder',
+                'RequestYearEnabled', 'RequestYearRequired', 'RequestYearLabel', 'RequestYearPlaceholder',
                 'CustomRequestFields'
             ];
 
@@ -208,7 +234,8 @@
                 'RequestTypeEnabled', 'RequestTypeRequired',
                 'RequestNotesEnabled', 'RequestNotesRequired',
                 'RequestImdbCodeEnabled', 'RequestImdbCodeRequired',
-                'RequestImdbLinkEnabled', 'RequestImdbLinkRequired'
+                'RequestImdbLinkEnabled', 'RequestImdbLinkRequired',
+                'RequestYearEnabled', 'RequestYearRequired'
             ];
 
             var intFields = ['MaxRequestsPerMonth', 'AutoDeleteRejectedDays'];
