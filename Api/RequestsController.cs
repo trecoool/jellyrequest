@@ -198,7 +198,7 @@ public class RequestsController : ControllerBase
 
         var count = isAdmin
             ? _requestsRepo.GetPendingCount()
-            : _requestsRepo.GetUnseenDoneCount(userId);
+            : _requestsRepo.GetUnseenCount(userId);
 
         return Ok(new NotificationInfo { Count = count, IsAdmin = isAdmin });
     }

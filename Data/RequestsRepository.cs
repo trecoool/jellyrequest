@@ -148,7 +148,7 @@ public class RequestsRepository
                     request.CompletedAt = DateTime.UtcNow;
                     request.RejectionReason = rejectionReason ?? string.Empty;
                     request.MediaLink = string.Empty;
-                    request.SeenByUser = true;
+                    request.SeenByUser = false;
                     break;
             }
         }
@@ -243,11 +243,11 @@ public class RequestsRepository
         }
     }
 
-    public int GetUnseenDoneCount(Guid userId)
+    public int GetUnseenCount(Guid userId)
     {
         lock (_cacheLock)
         {
-            return _requests.Values.Count(r => r.UserId == userId && r.Status == "done" && !r.SeenByUser);
+            return _requests.Values.Count(r => r.UserId == userId && (r.Status == "done" || r.Status == "rejected") && !r.SeenByUser);
         }
     }
 
@@ -259,7 +259,7 @@ public class RequestsRepository
             changed = false;
             foreach (var request in _requests.Values)
             {
-                if (request.UserId == userId && request.Status == "done" && !request.SeenByUser)
+                if (request.UserId == userId && (request.Status == "done" || request.Status == "rejected") && !request.SeenByUser)
                 {
                     request.SeenByUser = true;
                     changed = true;

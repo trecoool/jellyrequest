@@ -376,6 +376,7 @@
         });
     }
 
+
     function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
     function safeUrl(str) { if (!str) return ''; const s = String(str).trim(); return /^https?:\/\//i.test(s) ? s : ''; }
 
@@ -526,16 +527,16 @@
 
         isAdmin = await checkAdmin();
 
-        // Users with unseen fulfilled requests jump straight to "My Requests"
-        let userHasUnseenDone = false;
+        // Users with unseen terminal (done/rejected) requests jump straight to "My Requests"
+        let userHasUnseen = false;
         if (!isAdmin) {
             try {
                 const my = await fetchMyRequests();
-                userHasUnseenDone = !!(my && my.some(r => r.Status === 'done' && !r.SeenByUser));
+                userHasUnseen = !!(my && my.some(r => (r.Status === 'done' || r.Status === 'rejected') && !r.SeenByUser));
             } catch {}
         }
 
-        const defaultTab = isAdmin ? 'admin' : (userHasUnseenDone ? 'list' : 'form');
+        const defaultTab = isAdmin ? 'admin' : (userHasUnseen ? 'list' : 'form');
 
         const overlay = document.createElement('div');
         overlay.className = 'jellyrequest-overlay';
@@ -739,7 +740,7 @@
             const list = document.createElement('ul'); list.className = 'jellyrequest-list';
             requests.forEach(req => list.appendChild(buildRequestItem(req, false)));
             container.appendChild(list);
-            if (requests.some(r => r.Status === 'done' && !r.SeenByUser)) {
+            if (requests.some(r => (r.Status === 'done' || r.Status === 'rejected') && !r.SeenByUser)) {
                 markSeen().then(() => updateNotificationBadge()).catch(() => {});
             }
         } catch (err) { container.innerHTML = `<div class="jellyrequest-msg error">Failed to load requests: ${escapeHtml(err.message)}</div>`; }
