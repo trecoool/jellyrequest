@@ -329,14 +329,15 @@ public class RequestsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MediaRequest>> Snooze(
         [FromRoute] Guid id,
-        [FromQuery] DateTime snoozedUntil)
+        [FromQuery] DateTime snoozedUntil,
+        [FromQuery] string? reason = null)
     {
         if (snoozedUntil <= DateTime.UtcNow)
         {
             return BadRequest("Snooze date must be in the future");
         }
 
-        var result = await _requestsRepo.SnoozeAsync(id, snoozedUntil).ConfigureAwait(false);
+        var result = await _requestsRepo.SnoozeAsync(id, snoozedUntil, reason).ConfigureAwait(false);
         return result != null ? Ok(result) : NotFound();
     }
 

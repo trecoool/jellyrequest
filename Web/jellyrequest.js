@@ -323,8 +323,10 @@
         if (rejectionReason) url += `&rejectionReason=${encodeURIComponent(rejectionReason)}`;
         return apiFetch(url, { method: 'POST' });
     }
-    async function snoozeRequest(id, snoozedUntil) {
-        return apiFetch(`/MediaRequests/${id}/Snooze?snoozedUntil=${encodeURIComponent(snoozedUntil)}`, { method: 'POST' });
+    async function snoozeRequest(id, snoozedUntil, reason) {
+        let url = `/MediaRequests/${id}/Snooze?snoozedUntil=${encodeURIComponent(snoozedUntil)}`;
+        if (reason) url += `&reason=${encodeURIComponent(reason)}`;
+        return apiFetch(url, { method: 'POST' });
     }
     async function unsnoozeRequest(id) { return apiFetch(`/MediaRequests/${id}/Unsnooze`, { method: 'POST' }); }
     async function markSeen() { return apiFetch('/MediaRequests/My/MarkSeen', { method: 'POST' }); }
@@ -376,9 +378,42 @@
         });
     }
 
+    // Combined snooze dialog: date (required) + optional reason text the
+    // user will see alongside the snooze date in their My Requests list.
+    function showDateReasonPrompt(message) {
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'jellyrequest-confirm';
+            const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 16);
+            overlay.innerHTML = `<div class="jellyrequest-confirm-box"><p>${escapeHtml(message)}</p><input class="confirm-input jr-sdr-date" type="datetime-local" value="${tomorrow}"><input class="confirm-input jr-sdr-reason" type="text" placeholder="Reason (optional, visible to user)"><div><button class="confirm-ok">Snooze</button><button class="confirm-no">Cancel</button></div></div>`;
+            const dateInput = overlay.querySelector('.jr-sdr-date');
+            const reasonInput = overlay.querySelector('.jr-sdr-reason');
+            overlay.querySelector('.confirm-ok').addEventListener('click', () => {
+                const date = dateInput.value;
+                if (!date) return;
+                const reason = reasonInput.value.trim();
+                overlay.remove();
+                resolve({ date, reason });
+            });
+            overlay.querySelector('.confirm-no').addEventListener('click', () => { overlay.remove(); resolve(null); });
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } });
+            document.body.appendChild(overlay);
+            dateInput.focus();
+        });
+    }
 
     function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
     function safeUrl(str) { if (!str) return ''; const s = String(str).trim(); return /^https?:\/\//i.test(s) ? s : ''; }
+    // "Apr 18th 2026" — short month + ordinal day + year. Ordinal suffix
+    // is "th" for 11/12/13 regardless of their ones digit, then st/nd/rd/th by ones.
+    function formatLongDate(d) {
+        const date = d instanceof Date ? d : new Date(d);
+        if (isNaN(date.getTime())) return '';
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const day = date.getDate();
+        const suffix = (day >= 11 && day <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][day % 10] || 'th');
+        return `${months[date.getMonth()]} ${day}${suffix} ${date.getFullYear()}`;
+    }
 
     // ── Notification Badge ──────────────────────────────────
     //
@@ -838,7 +873,11 @@
         const yearSuffix = req.Year ? ` (${escapeHtml(req.Year)})` : '';
 
         let extraInfo = '';
-        if (req.Status === 'snoozed' && req.SnoozedUntil) extraInfo += `<div class="jellyrequest-snooze-info">Snoozed until ${new Date(req.SnoozedUntil).toLocaleDateString()}</div>`;
+        if (req.Status === 'snoozed' && req.SnoozedUntil) {
+            const base = `Snoozed until ${formatLongDate(req.SnoozedUntil)}`;
+            const reasonPart = req.SnoozeReason ? ` — ${escapeHtml(req.SnoozeReason)}` : '';
+            extraInfo += `<div class="jellyrequest-snooze-info">${base}${reasonPart}</div>`;
+        }
         if (req.Status === 'rejected' && req.RejectionReason) extraInfo += `<div class="jellyrequest-rejection">Reason: ${escapeHtml(req.RejectionReason)}</div>`;
 
         // Details block — shows the data the user submitted. Order: Link, IMDB Code, Notes, Custom fields.
@@ -904,7 +943,12 @@
                 actions.appendChild(b);
             } else if (req.Status === 'pending') {
                 const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Snooze';
-                b.addEventListener('click', async () => { const d = await showDatePrompt('Snooze until:'); if (!d) return; try { await snoozeRequest(req.Id, new Date(d).toISOString()); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                b.addEventListener('click', async () => {
+                    const result = await showDateReasonPrompt('Snooze until:');
+                    if (!result || !result.date) return;
+                    try { await snoozeRequest(req.Id, new Date(result.date).toISOString(), result.reason); renderAdminList(); updateNotificationBadge(); }
+                    catch (e) { alert(e.message); }
+                });
                 actions.appendChild(b);
             }
             if (req.Status !== 'pending') {

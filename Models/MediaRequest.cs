@@ -36,5 +36,7 @@ public class MediaRequest
 
     public DateTime? SnoozedUntil { get; set; }
 
+    public string SnoozeReason { get; set; } = string.Empty;
+
     public bool SeenByUser { get; set; } = true;
 }

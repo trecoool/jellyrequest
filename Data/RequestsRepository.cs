@@ -197,7 +197,7 @@ public class RequestsRepository
         return removed;
     }
 
-    public async Task<MediaRequest?> SnoozeAsync(Guid id, DateTime snoozedUntil)
+    public async Task<MediaRequest?> SnoozeAsync(Guid id, DateTime snoozedUntil, string? reason)
     {
         MediaRequest? request;
         lock (_cacheLock)
@@ -210,6 +210,7 @@ public class RequestsRepository
 
             request.Status = "snoozed";
             request.SnoozedUntil = snoozedUntil;
+            request.SnoozeReason = reason ?? string.Empty;
         }
 
         await SaveDataAsync().ConfigureAwait(false);
@@ -229,6 +230,7 @@ public class RequestsRepository
 
             request.Status = "pending";
             request.SnoozedUntil = null;
+            request.SnoozeReason = string.Empty;
         }
 
         await SaveDataAsync().ConfigureAwait(false);
