@@ -136,16 +136,19 @@ public class RequestsRepository
                     request.CompletedAt = null;
                     request.MediaLink = string.Empty;
                     request.RejectionReason = string.Empty;
+                    request.SeenByUser = true;
                     break;
                 case "done":
                     request.CompletedAt = DateTime.UtcNow;
                     request.MediaLink = mediaLink ?? string.Empty;
                     request.RejectionReason = string.Empty;
+                    request.SeenByUser = false;
                     break;
                 case "rejected":
                     request.CompletedAt = DateTime.UtcNow;
                     request.RejectionReason = rejectionReason ?? string.Empty;
                     request.MediaLink = string.Empty;
+                    request.SeenByUser = true;
                     break;
             }
         }
@@ -230,6 +233,44 @@ public class RequestsRepository
 
         await SaveDataAsync().ConfigureAwait(false);
         return request;
+    }
+
+    public int GetPendingCount()
+    {
+        lock (_cacheLock)
+        {
+            return _requests.Values.Count(r => r.Status == "pending");
+        }
+    }
+
+    public int GetUnseenDoneCount(Guid userId)
+    {
+        lock (_cacheLock)
+        {
+            return _requests.Values.Count(r => r.UserId == userId && r.Status == "done" && !r.SeenByUser);
+        }
+    }
+
+    public async Task MarkSeenAsync(Guid userId)
+    {
+        bool changed;
+        lock (_cacheLock)
+        {
+            changed = false;
+            foreach (var request in _requests.Values)
+            {
+                if (request.UserId == userId && request.Status == "done" && !request.SeenByUser)
+                {
+                    request.SeenByUser = true;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            await SaveDataAsync().ConfigureAwait(false);
+        }
     }
 
     public int GetUserCountThisMonth(Guid userId)

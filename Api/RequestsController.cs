@@ -174,6 +174,40 @@ public class RequestsController : ControllerBase
         return Ok(requests);
     }
 
+    [HttpPost("My/MarkSeen")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> MarkSeen()
+    {
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
+        await _requestsRepo.MarkSeenAsync(userId).ConfigureAwait(false);
+        return NoContent();
+    }
+
+    [HttpGet("Notifications")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<NotificationInfo>> GetNotifications()
+    {
+        // Defense-in-depth: tell every cache layer (browser, service worker,
+        // proxy) that this response must never be served from cache. The
+        // frontend also adds a timestamp query param, but headers are belt
+        // and suspenders for caches that key on path only.
+        Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Expires"] = "0";
+
+        var auth = await GetAuthInfoAsync().ConfigureAwait(false);
+        var userId = auth.UserId;
+        var isAdmin = auth.User?.HasPermission(PermissionKind.IsAdministrator) ?? false;
+
+        var count = isAdmin
+            ? _requestsRepo.GetPendingCount()
+            : _requestsRepo.GetUnseenDoneCount(userId);
+
+        return Ok(new NotificationInfo { Count = count, IsAdmin = isAdmin });
+    }
+
     [HttpGet("Quota")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]

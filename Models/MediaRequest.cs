@@ -35,4 +35,6 @@ public class MediaRequest
     public string Year { get; set; } = string.Empty;
 
     public DateTime? SnoozedUntil { get; set; }
+
+    public bool SeenByUser { get; set; } = true;
 }

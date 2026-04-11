@@ -4,13 +4,13 @@
     const INIT_TIMEOUT = 2000;
     const BUTTON_RETRY_MAX = 10;
     const BUTTON_RETRY_INTERVAL = 1000;
-    const NOTIFY_POLL_INTERVAL = 30000;
+    const NOTIFY_AUTH_RETRY_DELAY = 250;
+    const NOTIFY_AUTH_MAX_ATTEMPTS = 20;
 
     let config = null;
     let modalOpen = false;
     let stylesInjected = false;
     let isAdmin = false;
-    let notifyTimer = null;
 
     // ── Styles ──────────────────────────────────────────────
 
@@ -290,10 +290,19 @@
         const headers = { ...(options.headers || {}) };
         if (auth) headers['X-Emby-Authorization'] = auth;
         if (options.body && typeof options.body === 'string') headers['Content-Type'] = 'application/json';
-        const resp = await fetch(`${base}${path}`, { ...options, headers });
+        const resp = await fetch(`${base}${path}`, { cache: 'no-store', ...options, headers });
         if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
             throw new Error(errText || `API ${resp.status}`);
+        }
+        // Auto-refresh the badge after any successful state-changing call.
+        // This is the single point that guarantees every action handler benefits
+        // — no need to remember to call updateNotificationBadge() in every place.
+        // We exclude /Notifications itself (would recurse) and any GET (read-only).
+        const method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && !path.startsWith('/MediaRequests/Notifications')) {
+            // Defer to next tick so the caller's response handler runs first.
+            setTimeout(() => updateNotificationBadge(), 0);
         }
         if (resp.status === 204) return null;
         const text = await resp.text();
@@ -318,6 +327,10 @@
         return apiFetch(`/MediaRequests/${id}/Snooze?snoozedUntil=${encodeURIComponent(snoozedUntil)}`, { method: 'POST' });
     }
     async function unsnoozeRequest(id) { return apiFetch(`/MediaRequests/${id}/Unsnooze`, { method: 'POST' }); }
+    async function markSeen() { return apiFetch('/MediaRequests/My/MarkSeen', { method: 'POST' }); }
+    // Timestamp query param defeats every cache layer (browser, service worker, proxy).
+    // Each call has a unique URL → no cache key collision is possible.
+    async function fetchNotifications() { return apiFetch(`/MediaRequests/Notifications?_=${Date.now()}`); }
 
     async function checkAdmin() {
         try { await apiFetch('/MediaRequests'); return true; } catch { return false; }
@@ -366,26 +379,37 @@
     function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
     // ── Notification Badge ──────────────────────────────────
+    //
+    // Event-driven, no polling. The badge refreshes on:
+    //   1. Initial page load (auth-aware — waits for ApiClient token)
+    //   2. SPA navigation (hashchange — Jellyfin uses hash routing)
+    //   3. Tab becoming visible
+    //   4. Local mutations (delete, status change, modal close — wired in their handlers)
+    //
+    // The server is the source of truth for both the count and the user's role.
+    // Every fetch has a unique URL (timestamp query param) so caches can't serve
+    // stale data.
 
     async function updateNotificationBadge() {
         const btn = document.querySelector('.jellyrequest-btn');
-        if (!btn || !isAuthenticated()) return;
+        if (!btn) return;
+        if (!isAuthenticated()) { console.debug('[JR] badge: not authenticated'); return; }
 
-        // Re-detect admin role on every poll so the badge stays correct after
-        // late authentication or role changes — both admin and user paths share
-        // this same fresh detection to avoid staleness from the cached global.
-        isAdmin = await checkAdmin();
-
-        let count = 0;
+        let result;
         try {
-            if (isAdmin) {
-                const all = await fetchAllRequests();
-                count = all ? all.filter(r => r.Status === 'pending').length : 0;
-            } else {
-                const my = await fetchMyRequests();
-                count = my ? my.filter(r => r.Status === 'done').length : 0;
-            }
-        } catch { return; }
+            result = await fetchNotifications();
+        } catch (err) {
+            console.warn('[JR] badge: fetch failed', err);
+            return;
+        }
+        if (!result) { console.warn('[JR] badge: empty response'); return; }
+
+        // Read both casings defensively in case of any serializer policy difference.
+        const adminFlag = result.IsAdmin ?? result.isAdmin;
+        const countRaw = result.Count ?? result.count;
+        isAdmin = !!adminFlag;
+        const count = Number(countRaw) || 0;
+        console.debug('[JR] badge: response', { isAdmin, count, raw: result });
 
         let badge = btn.querySelector('.jellyrequest-notify');
         if (count > 0) {
@@ -400,10 +424,67 @@
         }
     }
 
-    function startNotificationPolling() {
-        updateNotificationBadge();
-        if (notifyTimer) clearInterval(notifyTimer);
-        notifyTimer = setInterval(updateNotificationBadge, NOTIFY_POLL_INTERVAL);
+    // Used only for the initial page-load refresh: ApiClient may still be loading
+    // its token from storage when this fires. Poll the LOCAL auth flag (no API
+    // calls) every 250ms for up to 5 seconds, then update the badge once.
+    async function refreshBadgeWhenAuthReady() {
+        for (let i = 0; i < NOTIFY_AUTH_MAX_ATTEMPTS; i++) {
+            if (isAuthenticated()) return updateNotificationBadge();
+            await new Promise(r => setTimeout(r, NOTIFY_AUTH_RETRY_DELAY));
+        }
+        console.debug('[JR] badge: gave up waiting for auth');
+    }
+
+    // Patch history.pushState/replaceState to emit a 'locationchange' event.
+    // Jellyfin's view manager uses these for some library/page transitions
+    // that don't fire hashchange. This is the standard SPA navigation trick.
+    function installHistoryPatch() {
+        if (window.__jellyrequestHistoryPatched) return;
+        window.__jellyrequestHistoryPatched = true;
+        ['pushState', 'replaceState'].forEach(method => {
+            const original = history[method];
+            history[method] = function () {
+                const result = original.apply(this, arguments);
+                window.dispatchEvent(new Event('locationchange'));
+                return result;
+            };
+        });
+    }
+
+    let badgeEventHooksInstalled = false;
+    function startBadgeUpdates() {
+        // Refresh on every call so each fresh button injection picks up state.
+        refreshBadgeWhenAuthReady();
+
+        if (badgeEventHooksInstalled) return;
+        badgeEventHooksInstalled = true;
+
+        installHistoryPatch();
+
+        // SPA navigation — three event sources cover every nav path Jellyfin uses:
+        //   hashchange      — hash-routed pages (#!/movies.html?...)
+        //   popstate        — back/forward buttons
+        //   locationchange  — pushState/replaceState (our monkey-patch above)
+        window.addEventListener('hashchange', updateNotificationBadge);
+        window.addEventListener('popstate', updateNotificationBadge);
+        window.addEventListener('locationchange', updateNotificationBadge);
+
+        // User comes back to the tab from another tab/app.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) updateNotificationBadge();
+        });
+
+        // Fallback: any click inside the Jellyfin header (library tabs, sidebar
+        // toggle, home button, settings) triggers a refresh. This is the safety
+        // net for nav paths that bypass the History API entirely. Debounced via
+        // a microtask so a flurry of clicks coalesces into one fetch.
+        let clickPending = false;
+        document.addEventListener('click', (e) => {
+            if (clickPending) return;
+            if (!e.target.closest('.skinHeader, .mainDrawer, .navMenuOption')) return;
+            clickPending = true;
+            queueMicrotask(() => { clickPending = false; updateNotificationBadge(); });
+        }, true);
     }
 
     // ── Header Button ───────────────────────────────────────
@@ -425,8 +506,8 @@
         if (headerRight) headerRight.insertBefore(btn, headerRight.firstChild);
         else header.appendChild(btn);
 
-        // Start notification polling after button is injected
-        startNotificationPolling();
+        // Wire up event-driven badge updates after button is injected
+        startBadgeUpdates();
     }
 
     function updateButtonVisibility() {
@@ -444,6 +525,17 @@
 
         isAdmin = await checkAdmin();
 
+        // Users with unseen fulfilled requests jump straight to "My Requests"
+        let userHasUnseenDone = false;
+        if (!isAdmin) {
+            try {
+                const my = await fetchMyRequests();
+                userHasUnseenDone = !!(my && my.some(r => r.Status === 'done' && !r.SeenByUser));
+            } catch {}
+        }
+
+        const defaultTab = isAdmin ? 'admin' : (userHasUnseenDone ? 'list' : 'form');
+
         const overlay = document.createElement('div');
         overlay.className = 'jellyrequest-overlay';
         overlay.id = 'jellyrequest-modal';
@@ -452,18 +544,16 @@
         const panel = document.createElement('div');
         panel.className = 'jellyrequest-panel';
 
-        // Admin gets "All Requests" first
+        const tabClass = (id) => `jellyrequest-tab${defaultTab === id ? ' active' : ''}`;
         let tabsHtml = '';
         if (isAdmin) {
-            tabsHtml += `<button class="jellyrequest-tab active" data-tab="admin">All Requests</button>`;
-            tabsHtml += `<button class="jellyrequest-tab" data-tab="form">New Request</button>`;
-            tabsHtml += `<button class="jellyrequest-tab" data-tab="list">My Requests</button>`;
+            tabsHtml += `<button class="${tabClass('admin')}" data-tab="admin">All Requests</button>`;
+            tabsHtml += `<button class="${tabClass('form')}" data-tab="form">New Request</button>`;
+            tabsHtml += `<button class="${tabClass('list')}" data-tab="list">My Requests</button>`;
         } else {
-            tabsHtml += `<button class="jellyrequest-tab active" data-tab="form">New Request</button>`;
-            tabsHtml += `<button class="jellyrequest-tab" data-tab="list">My Requests</button>`;
+            tabsHtml += `<button class="${tabClass('form')}" data-tab="form">New Request</button>`;
+            tabsHtml += `<button class="${tabClass('list')}" data-tab="list">My Requests</button>`;
         }
-
-        const defaultTab = isAdmin ? 'admin' : 'form';
 
         panel.innerHTML = `
             <div class="jellyrequest-panel-header">
@@ -474,7 +564,7 @@
                 <div class="jellyrequest-tabs">${tabsHtml}</div>
                 <div class="jellyrequest-quota"></div>
                 <div id="jellyrequest-tab-form" style="${defaultTab !== 'form' ? 'display:none;' : ''}"></div>
-                <div id="jellyrequest-tab-list" style="display:none;"></div>
+                <div id="jellyrequest-tab-list" style="${defaultTab !== 'list' ? 'display:none;' : ''}"></div>
                 ${isAdmin ? `<div id="jellyrequest-tab-admin" style="${defaultTab !== 'admin' ? 'display:none;' : ''}"></div>` : ''}
             </div>
         `;
@@ -517,6 +607,7 @@
             renderQuota(quota);
             renderForm(cfg);
             if (defaultTab === 'admin') renderAdminList();
+            if (defaultTab === 'list') renderRequestsList();
         } catch (err) {
             const formTab = document.getElementById('jellyrequest-tab-form');
             if (formTab) formTab.innerHTML = `<div class="jellyrequest-msg error">Failed to load: ${escapeHtml(err.message)}</div>`;
@@ -648,6 +739,9 @@
             const list = document.createElement('ul'); list.className = 'jellyrequest-list';
             requests.forEach(req => list.appendChild(buildRequestItem(req, false)));
             container.appendChild(list);
+            if (requests.some(r => r.Status === 'done' && !r.SeenByUser)) {
+                markSeen().then(() => updateNotificationBadge()).catch(() => {});
+            }
         } catch (err) { container.innerHTML = `<div class="jellyrequest-msg error">Failed to load requests: ${escapeHtml(err.message)}</div>`; }
     }
 
@@ -857,6 +951,10 @@
         injectStyles();
         isAdmin = await checkAdmin();
         injectHeaderButton();
+
+        // Debug hook — call from DevTools to inspect the badge pipeline.
+        // Example: await window.__jellyrequest.fetchNotifications()
+        window.__jellyrequest = { fetchNotifications, updateNotificationBadge, get isAdmin() { return isAdmin; } };
 
         setInterval(() => {
             updateButtonVisibility();
