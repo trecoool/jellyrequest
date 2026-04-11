@@ -377,6 +377,7 @@
     }
 
     function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+    function safeUrl(str) { if (!str) return ''; const s = String(str).trim(); return /^https?:\/\//i.test(s) ? s : ''; }
 
     // ── Notification Badge ──────────────────────────────────
     //
@@ -702,7 +703,6 @@
         if (cfg.RequestImdbLinkEnabled && cfg.RequestImdbLinkRequired && !imdbLink) { showFormMsg('IMDB Link is required.', 'error'); return; }
         if (cfg.RequestYearEnabled && cfg.RequestYearRequired && !year) { showFormMsg('Year is required.', 'error'); return; }
         if (imdbCode && !/^tt\d+$/.test(imdbCode)) { showFormMsg('IMDB Code must match format: tt1234567', 'error'); return; }
-        if (imdbLink && !imdbLink.startsWith('https://www.imdb.com/title/tt')) { showFormMsg('IMDB Link must start with https://www.imdb.com/title/tt', 'error'); return; }
         if (year && !/^\d{4}$/.test(year)) { showFormMsg('Year must be 4 digits.', 'error'); return; }
 
         let customFields = null;
@@ -844,8 +844,11 @@
         let details = '';
         const detailRows = [];
         if (req.ImdbLink) {
-            const safeHref = escapeHtml(req.ImdbLink);
-            detailRows.push(`<div class="jellyrequest-detail"><span class="jellyrequest-detail-label">Link:</span> <a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeHref}</a></div>`);
+            const href = safeUrl(req.ImdbLink);
+            const label = escapeHtml(req.ImdbLink);
+            detailRows.push(href
+                ? `<div class="jellyrequest-detail"><span class="jellyrequest-detail-label">Link:</span> <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a></div>`
+                : `<div class="jellyrequest-detail"><span class="jellyrequest-detail-label">Link:</span> ${label}</div>`);
         }
         if (req.ImdbCode) {
             detailRows.push(`<div class="jellyrequest-detail"><span class="jellyrequest-detail-label">IMDB Code:</span> ${escapeHtml(req.ImdbCode)}</div>`);

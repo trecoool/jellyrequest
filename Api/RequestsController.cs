@@ -122,11 +122,6 @@ public class RequestsController : ControllerBase
             return BadRequest("IMDB Code must match format: tt1234567");
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
-        }
-
         if (!string.IsNullOrWhiteSpace(dto.Year) && !YearRegex.IsMatch(dto.Year))
         {
             return BadRequest("Year must be 4 digits");
@@ -261,11 +256,6 @@ public class RequestsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.ImdbCode) && !ImdbCodeRegex.IsMatch(dto.ImdbCode))
         {
             return BadRequest("IMDB Code must match format: tt1234567");
-        }
-
-        if (!string.IsNullOrWhiteSpace(dto.ImdbLink) && !dto.ImdbLink.StartsWith("https://www.imdb.com/title/tt", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest("IMDB Link must start with https://www.imdb.com/title/tt");
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Year) && !YearRegex.IsMatch(dto.Year))
