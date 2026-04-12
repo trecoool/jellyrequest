@@ -132,7 +132,6 @@ public class RequestsRepository
             switch (status)
             {
                 case "pending":
-                case "processing":
                     request.CompletedAt = null;
                     request.MediaLink = string.Empty;
                     request.RejectionReason = string.Empty;

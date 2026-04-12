@@ -162,7 +162,6 @@
                 font-size: 0.75em; font-weight: 600; text-transform: uppercase; flex-shrink: 0;
             }
             .jellyrequest-badge.pending { background: rgba(241,196,15,0.2); color: #f1c40f; }
-            .jellyrequest-badge.processing { background: rgba(52,152,219,0.2); color: #3498db; }
             .jellyrequest-badge.done { background: rgba(39,174,96,0.2); color: #27ae60; }
             .jellyrequest-badge.rejected { background: rgba(231,76,60,0.2); color: #e74c3c; }
             .jellyrequest-badge.snoozed { background: rgba(149,165,166,0.2); color: #95a5a6; }
@@ -592,6 +591,7 @@
             tabsHtml += `<button class="${tabClass('admin')}" data-tab="admin">All Requests</button>`;
             tabsHtml += `<button class="${tabClass('form')}" data-tab="form">New Request</button>`;
             tabsHtml += `<button class="${tabClass('list')}" data-tab="list">My Requests</button>`;
+            tabsHtml += `<button class="${tabClass('archive')}" data-tab="archive">Archived</button>`;
         } else {
             tabsHtml += `<button class="${tabClass('form')}" data-tab="form">New Request</button>`;
             tabsHtml += `<button class="${tabClass('list')}" data-tab="list">My Requests</button>`;
@@ -608,6 +608,7 @@
                 <div id="jellyrequest-tab-form" style="${defaultTab !== 'form' ? 'display:none;' : ''}"></div>
                 <div id="jellyrequest-tab-list" style="${defaultTab !== 'list' ? 'display:none;' : ''}"></div>
                 ${isAdmin ? `<div id="jellyrequest-tab-admin" style="${defaultTab !== 'admin' ? 'display:none;' : ''}"></div>` : ''}
+                ${isAdmin ? `<div id="jellyrequest-tab-archive" style="${defaultTab !== 'archive' ? 'display:none;' : ''}"></div>` : ''}
             </div>
         `;
 
@@ -616,7 +617,7 @@
 
         panel.querySelector('.jellyrequest-close').addEventListener('click', closeModal);
 
-        const allTabIds = ['form', 'list', 'admin'];
+        const allTabIds = ['form', 'list', 'admin', 'archive'];
         panel.querySelectorAll('.jellyrequest-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 panel.querySelectorAll('.jellyrequest-tab').forEach(t => t.classList.remove('active'));
@@ -625,6 +626,7 @@
                 allTabIds.forEach(id => { const el = document.getElementById(`jellyrequest-tab-${id}`); if (el) el.style.display = id === target ? '' : 'none'; });
                 if (target === 'list') renderRequestsList();
                 if (target === 'admin') renderAdminList();
+                if (target === 'archive') renderArchiveList();
             });
         });
 
@@ -650,6 +652,7 @@
             renderForm(cfg);
             if (defaultTab === 'admin') renderAdminList();
             if (defaultTab === 'list') renderRequestsList();
+            if (defaultTab === 'archive') renderArchiveList();
         } catch (err) {
             const formTab = document.getElementById('jellyrequest-tab-form');
             if (formTab) formTab.innerHTML = `<div class="jellyrequest-msg error">Failed to load: ${escapeHtml(err.message)}</div>`;
@@ -788,8 +791,8 @@
 
     // ── Admin: All Requests with multi-select filter ────────
 
-    let activeFilters = new Set(['pending', 'processing', 'snoozed', 'done', 'rejected']);
-    const ALL_STATUSES = ['pending', 'processing', 'snoozed', 'done', 'rejected', 'archived'];
+    let activeFilters = new Set(['pending', 'snoozed', 'done', 'rejected']);
+    const ALL_STATUSES = ['pending', 'snoozed', 'done', 'rejected'];
 
     async function renderAdminList() {
         const container = document.getElementById('jellyrequest-tab-admin');
@@ -806,9 +809,7 @@
 
             ALL_STATUSES.forEach(status => {
                 const btn = document.createElement('button');
-                const statusRequests = status === 'archived'
-                    ? (requests ? requests.filter(r => r.IsArchived) : [])
-                    : (requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : []);
+                const statusRequests = requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : [];
                 btn.textContent = `${status.charAt(0).toUpperCase() + status.slice(1)} (${statusRequests.length})`;
                 btn.dataset.filter = status;
                 if (activeFilters.has(status)) btn.classList.add('active');
@@ -845,9 +846,7 @@
             let hasAny = false;
             ALL_STATUSES.forEach(status => {
                 if (!activeFilters.has(status)) return;
-                const statusRequests = status === 'archived'
-                    ? (requests ? requests.filter(r => r.IsArchived) : [])
-                    : (requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : []);
+                const statusRequests = requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : [];
                 if (statusRequests.length === 0) return;
                 hasAny = true;
 
@@ -865,6 +864,23 @@
             if (!hasAny) {
                 container.insertAdjacentHTML('beforeend', '<div class="jellyrequest-empty">No requests</div>');
             }
+        } catch (err) { container.innerHTML = `<div class="jellyrequest-msg error">Failed to load: ${escapeHtml(err.message)}</div>`; }
+    }
+
+    // ── Admin: Archived Requests tab ────────────────────────
+
+    async function renderArchiveList() {
+        const container = document.getElementById('jellyrequest-tab-archive');
+        if (!container) return;
+        container.innerHTML = '<div class="jellyrequest-empty">Loading...</div>';
+        try {
+            const requests = await fetchAllRequests();
+            const archived = requests ? requests.filter(r => r.IsArchived) : [];
+            container.innerHTML = '';
+            if (archived.length === 0) { container.innerHTML = '<div class="jellyrequest-empty">No archived requests</div>'; return; }
+            const list = document.createElement('ul'); list.className = 'jellyrequest-list';
+            archived.forEach(req => list.appendChild(buildRequestItem(req, true)));
+            container.appendChild(list);
         } catch (err) { container.innerHTML = `<div class="jellyrequest-msg error">Failed to load: ${escapeHtml(err.message)}</div>`; }
     }
 
@@ -932,48 +948,44 @@
 
         if (adminMode) {
             if (req.IsArchived) {
-                // Archived items: only unarchive
                 const b = document.createElement('button'); b.textContent = 'Unarchive';
-                b.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                b.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); renderArchiveList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(b);
-            } else {
-                // Non-archived: full status controls + archive
-                if (req.Status !== 'processing') {
-                    const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Processing';
-                    b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'processing'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                    actions.appendChild(b);
-                }
-                if (req.Status !== 'done') {
-                    const b = document.createElement('button'); b.className = 'success'; b.textContent = 'Done';
-                    b.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                    actions.appendChild(b);
-                }
-                if (req.Status !== 'rejected') {
-                    const b = document.createElement('button'); b.className = 'danger'; b.textContent = 'Reject';
-                    b.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                    actions.appendChild(b);
-                }
-                if (req.Status === 'snoozed') {
-                    const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Unsnooze';
-                    b.addEventListener('click', async () => { try { await unsnoozeRequest(req.Id); renderAdminList(); } catch (e) { alert(e.message); } });
-                    actions.appendChild(b);
-                } else if (req.Status === 'pending') {
-                    const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Snooze';
-                    b.addEventListener('click', async () => {
-                        const result = await showDateReasonPrompt('Snooze until:');
-                        if (!result || !result.date) return;
-                        try { await snoozeRequest(req.Id, new Date(result.date).toISOString(), result.reason); renderAdminList(); updateNotificationBadge(); }
-                        catch (e) { alert(e.message); }
-                    });
-                    actions.appendChild(b);
-                }
-                if (req.Status !== 'pending') {
-                    const b = document.createElement('button'); b.textContent = 'Reset to Pending';
-                    b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'pending'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                    actions.appendChild(b);
-                }
+            } else if (req.Status === 'pending') {
+                const doneBtn = document.createElement('button'); doneBtn.className = 'success'; doneBtn.textContent = 'Done';
+                doneBtn.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(doneBtn);
+                const rejBtn = document.createElement('button'); rejBtn.className = 'danger'; rejBtn.textContent = 'Reject';
+                rejBtn.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(rejBtn);
+                const snzBtn = document.createElement('button'); snzBtn.className = 'warning'; snzBtn.textContent = 'Snooze';
+                snzBtn.addEventListener('click', async () => {
+                    const result = await showDateReasonPrompt('Snooze until:');
+                    if (!result || !result.date) return;
+                    try { await snoozeRequest(req.Id, new Date(result.date).toISOString(), result.reason); renderAdminList(); updateNotificationBadge(); }
+                    catch (e) { alert(e.message); }
+                });
+                actions.appendChild(snzBtn);
                 const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
-                archBtn.addEventListener('click', async () => { if (await showConfirm(`Archive "${req.Title}" by ${req.Username}?`, 'Archive')) { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } } });
+                archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(archBtn);
+            } else if (req.Status === 'snoozed') {
+                const unsnzBtn = document.createElement('button'); unsnzBtn.className = 'warning'; unsnzBtn.textContent = 'Unsnooze';
+                unsnzBtn.addEventListener('click', async () => { try { await unsnoozeRequest(req.Id); renderAdminList(); } catch (e) { alert(e.message); } });
+                actions.appendChild(unsnzBtn);
+                const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
+                archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(archBtn);
+            } else if (req.Status === 'done') {
+                const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
+                archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(archBtn);
+            } else if (req.Status === 'rejected') {
+                const resetBtn = document.createElement('button'); resetBtn.textContent = 'Reset to Pending';
+                resetBtn.addEventListener('click', async () => { try { await changeStatus(req.Id, 'pending'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(resetBtn);
+                const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
+                archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(archBtn);
             }
         } else {
@@ -984,7 +996,6 @@
             }
             const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
             archBtn.addEventListener('click', async () => {
-                if (!await showConfirm(`Archive "${req.Title}"?`, 'Archive')) return;
                 try { await archiveRequest(req.Id); renderRequestsList(); updateNotificationBadge(); try { renderQuota(await fetchQuota()); } catch {} } catch (err) { alert('Failed to archive: ' + (err.message || 'Unknown error')); }
             });
             actions.appendChild(archBtn);

@@ -28,7 +28,7 @@ public class RequestsController : ControllerBase
 
     private static readonly Regex ImdbCodeRegex = new(@"^tt\d+$", RegexOptions.Compiled);
     private static readonly Regex YearRegex = new(@"^\d{4}$", RegexOptions.Compiled);
-    private static readonly string[] ValidStatuses = { "pending", "processing", "done", "rejected" };
+    private static readonly string[] ValidStatuses = { "pending", "done", "rejected" };
 
     public RequestsController(
         RequestsRepository requestsRepo,
