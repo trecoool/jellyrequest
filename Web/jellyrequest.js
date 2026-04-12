@@ -895,6 +895,7 @@
         const date = new Date(req.CreatedAt).toLocaleDateString();
         const typeBadge = req.Type ? ` \u00b7 ${escapeHtml(req.Type)}` : '';
         const requester = adminMode ? ` \u00b7 by ${escapeHtml(req.Username || 'Unknown')}` : '';
+        const seenTag = (adminMode && req.Status === 'done') ? ` \u00b7 ${req.SeenByUser ? '\u2705 seen' : '\u23f3 unseen'}` : '';
         const yearSuffix = req.Year ? ` (${escapeHtml(req.Year)})` : '';
 
         let extraInfo = '';
@@ -938,7 +939,7 @@
                 <span class="jellyrequest-list-title">${escapeHtml(req.Title)}${yearSuffix}</span>
                 <span class="jellyrequest-badge ${statusClass}">${escapeHtml(req.Status)}</span>
             </div>
-            <div class="jellyrequest-list-meta">${date}${typeBadge}${requester}</div>
+            <div class="jellyrequest-list-meta">${date}${typeBadge}${requester}${seenTag}</div>
             ${details}
             ${extraInfo}
         `;
