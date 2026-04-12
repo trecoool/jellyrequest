@@ -146,10 +146,11 @@ public class RequestsController : ControllerBase
 
         var result = await _requestsRepo.AddAsync(request).ConfigureAwait(false);
 
-        if (config.AutoDeleteRejectedDays > 0)
-        {
-            await _requestsRepo.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
-        }
+        // Commented out — CleanupOldRejectedAsync depends on DeleteAsync which is disabled.
+        // if (config.AutoDeleteRejectedDays > 0)
+        // {
+        //     await _requestsRepo.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
+        // }
 
         return Ok(result);
     }
@@ -267,6 +268,7 @@ public class RequestsController : ControllerBase
         return result != null ? Ok(result) : BadRequest("Could not update request");
     }
 
+    /* Commented out — replaced by ArchiveOwnRequest. Will probably reuse later.
     [HttpDelete("{id}")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -290,6 +292,32 @@ public class RequestsController : ControllerBase
 
         await _requestsRepo.DeleteAsync(id).ConfigureAwait(false);
         return NoContent();
+    }
+    */
+
+    [HttpPost("{id}/Archive")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> ArchiveOwnRequest([FromRoute] Guid id)
+    {
+        var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
+
+        var existing = _requestsRepo.GetById(id);
+
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
+        if (existing.UserId != userId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "You can only archive your own requests");
+        }
+
+        var result = await _requestsRepo.ArchiveAsync(id).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
     }
 
     // === Admin Endpoints ===
@@ -351,6 +379,7 @@ public class RequestsController : ControllerBase
         return result != null ? Ok(result) : NotFound();
     }
 
+    /* Commented out — replaced by AdminArchive. Will probably reuse later.
     [HttpDelete("Admin/{id}")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -359,6 +388,27 @@ public class RequestsController : ControllerBase
     {
         var deleted = await _requestsRepo.DeleteAsync(id).ConfigureAwait(false);
         return deleted ? NoContent() : NotFound();
+    }
+    */
+
+    [HttpPost("Admin/{id}/Archive")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> AdminArchive([FromRoute] Guid id)
+    {
+        var result = await _requestsRepo.ArchiveAsync(id).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
+    }
+
+    [HttpPost("Admin/{id}/Unarchive")]
+    [Authorize(Policy = "RequiresElevation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaRequest>> AdminUnarchive([FromRoute] Guid id)
+    {
+        var result = await _requestsRepo.UnarchiveAsync(id).ConfigureAwait(false);
+        return result != null ? Ok(result) : NotFound();
     }
 
     [HttpGet("Bans")]

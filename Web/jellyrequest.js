@@ -184,6 +184,8 @@
             .jellyrequest-list-actions button.success:hover { background: rgba(39,174,96,0.15); }
             .jellyrequest-list-actions button.warning { border-color: rgba(241,196,15,0.3); color: #f1c40f; }
             .jellyrequest-list-actions button.warning:hover { background: rgba(241,196,15,0.15); }
+            .jellyrequest-list-actions button.archive { border-color: rgba(128,128,128,0.3); color: #888; }
+            .jellyrequest-list-actions button.archive:hover { background: rgba(128,128,128,0.15); }
             .jellyrequest-empty { text-align: center; padding: 24px; color: rgba(255,255,255,0.4); font-size: 0.9em; }
 
             .jellyrequest-edit-form input, .jellyrequest-edit-form textarea, .jellyrequest-edit-form select {
@@ -314,8 +316,11 @@
     async function fetchAllRequests() { return apiFetch('/MediaRequests'); }
     async function fetchQuota() { return apiFetch('/MediaRequests/Quota'); }
     async function createRequest(dto) { return apiFetch('/MediaRequests', { method: 'POST', body: JSON.stringify(dto) }); }
-    async function deleteRequest(id) { return apiFetch(`/MediaRequests/${id}`, { method: 'DELETE' }); }
-    async function adminDeleteRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}`, { method: 'DELETE' }); }
+    // async function deleteRequest(id) { return apiFetch(`/MediaRequests/${id}`, { method: 'DELETE' }); }
+    // async function adminDeleteRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}`, { method: 'DELETE' }); }
+    async function archiveRequest(id) { return apiFetch(`/MediaRequests/${id}/Archive`, { method: 'POST' }); }
+    async function adminArchiveRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}/Archive`, { method: 'POST' }); }
+    async function adminUnarchiveRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}/Unarchive`, { method: 'POST' }); }
     async function editRequest(id, dto) { return apiFetch(`/MediaRequests/${id}`, { method: 'PUT', body: JSON.stringify(dto) }); }
     async function changeStatus(id, status, mediaLink, rejectionReason) {
         let url = `/MediaRequests/${id}/Status?status=${encodeURIComponent(status)}`;
@@ -784,7 +789,7 @@
     // ── Admin: All Requests with multi-select filter ────────
 
     let activeFilters = new Set(['pending', 'processing', 'snoozed', 'done', 'rejected']);
-    const ALL_STATUSES = ['pending', 'processing', 'snoozed', 'done', 'rejected'];
+    const ALL_STATUSES = ['pending', 'processing', 'snoozed', 'done', 'rejected', 'archived'];
 
     async function renderAdminList() {
         const container = document.getElementById('jellyrequest-tab-admin');
@@ -801,7 +806,9 @@
 
             ALL_STATUSES.forEach(status => {
                 const btn = document.createElement('button');
-                const statusRequests = requests ? requests.filter(r => (r.Status || '').toLowerCase() === status) : [];
+                const statusRequests = status === 'archived'
+                    ? (requests ? requests.filter(r => r.IsArchived) : [])
+                    : (requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : []);
                 btn.textContent = `${status.charAt(0).toUpperCase() + status.slice(1)} (${statusRequests.length})`;
                 btn.dataset.filter = status;
                 if (activeFilters.has(status)) btn.classList.add('active');
@@ -838,7 +845,9 @@
             let hasAny = false;
             ALL_STATUSES.forEach(status => {
                 if (!activeFilters.has(status)) return;
-                const statusRequests = requests ? requests.filter(r => (r.Status || '').toLowerCase() === status) : [];
+                const statusRequests = status === 'archived'
+                    ? (requests ? requests.filter(r => r.IsArchived) : [])
+                    : (requests ? requests.filter(r => (r.Status || '').toLowerCase() === status && !r.IsArchived) : []);
                 if (statusRequests.length === 0) return;
                 hasAny = true;
 
@@ -922,55 +931,63 @@
         actions.className = 'jellyrequest-list-actions';
 
         if (adminMode) {
-            if (req.Status !== 'processing') {
-                const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Processing';
-                b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'processing'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+            if (req.IsArchived) {
+                // Archived items: only unarchive
+                const b = document.createElement('button'); b.textContent = 'Unarchive';
+                b.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(b);
+            } else {
+                // Non-archived: full status controls + archive
+                if (req.Status !== 'processing') {
+                    const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Processing';
+                    b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'processing'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                    actions.appendChild(b);
+                }
+                if (req.Status !== 'done') {
+                    const b = document.createElement('button'); b.className = 'success'; b.textContent = 'Done';
+                    b.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                    actions.appendChild(b);
+                }
+                if (req.Status !== 'rejected') {
+                    const b = document.createElement('button'); b.className = 'danger'; b.textContent = 'Reject';
+                    b.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                    actions.appendChild(b);
+                }
+                if (req.Status === 'snoozed') {
+                    const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Unsnooze';
+                    b.addEventListener('click', async () => { try { await unsnoozeRequest(req.Id); renderAdminList(); } catch (e) { alert(e.message); } });
+                    actions.appendChild(b);
+                } else if (req.Status === 'pending') {
+                    const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Snooze';
+                    b.addEventListener('click', async () => {
+                        const result = await showDateReasonPrompt('Snooze until:');
+                        if (!result || !result.date) return;
+                        try { await snoozeRequest(req.Id, new Date(result.date).toISOString(), result.reason); renderAdminList(); updateNotificationBadge(); }
+                        catch (e) { alert(e.message); }
+                    });
+                    actions.appendChild(b);
+                }
+                if (req.Status !== 'pending') {
+                    const b = document.createElement('button'); b.textContent = 'Reset to Pending';
+                    b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'pending'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                    actions.appendChild(b);
+                }
+                const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
+                archBtn.addEventListener('click', async () => { if (await showConfirm(`Archive "${req.Title}" by ${req.Username}?`, 'Archive')) { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } } });
+                actions.appendChild(archBtn);
             }
-            if (req.Status !== 'done') {
-                const b = document.createElement('button'); b.className = 'success'; b.textContent = 'Done';
-                b.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                actions.appendChild(b);
-            }
-            if (req.Status !== 'rejected') {
-                const b = document.createElement('button'); b.className = 'danger'; b.textContent = 'Reject';
-                b.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                actions.appendChild(b);
-            }
-            if (req.Status === 'snoozed') {
-                const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Unsnooze';
-                b.addEventListener('click', async () => { try { await unsnoozeRequest(req.Id); renderAdminList(); } catch (e) { alert(e.message); } });
-                actions.appendChild(b);
-            } else if (req.Status === 'pending') {
-                const b = document.createElement('button'); b.className = 'warning'; b.textContent = 'Snooze';
-                b.addEventListener('click', async () => {
-                    const result = await showDateReasonPrompt('Snooze until:');
-                    if (!result || !result.date) return;
-                    try { await snoozeRequest(req.Id, new Date(result.date).toISOString(), result.reason); renderAdminList(); updateNotificationBadge(); }
-                    catch (e) { alert(e.message); }
-                });
-                actions.appendChild(b);
-            }
-            if (req.Status !== 'pending') {
-                const b = document.createElement('button'); b.textContent = 'Reset to Pending';
-                b.addEventListener('click', async () => { try { await changeStatus(req.Id, 'pending'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
-                actions.appendChild(b);
-            }
-            const delBtn = document.createElement('button'); delBtn.className = 'danger'; delBtn.textContent = 'Delete';
-            delBtn.addEventListener('click', async () => { if (await showConfirm(`Delete "${req.Title}" by ${req.Username}?`)) { try { await adminDeleteRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } } });
-            actions.appendChild(delBtn);
         } else {
             if (req.Status === 'pending') {
                 const b = document.createElement('button'); b.textContent = 'Edit';
                 b.addEventListener('click', () => startEdit(item, req));
                 actions.appendChild(b);
             }
-            const delBtn = document.createElement('button'); delBtn.className = 'danger'; delBtn.textContent = 'Delete';
-            delBtn.addEventListener('click', async () => {
-                if (!await showConfirm(`Delete "${req.Title}"?`)) return;
-                try { await deleteRequest(req.Id); renderRequestsList(); updateNotificationBadge(); try { renderQuota(await fetchQuota()); } catch {} } catch (err) { alert('Failed to delete: ' + (err.message || 'Unknown error')); }
+            const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
+            archBtn.addEventListener('click', async () => {
+                if (!await showConfirm(`Archive "${req.Title}"?`, 'Archive')) return;
+                try { await archiveRequest(req.Id); renderRequestsList(); updateNotificationBadge(); try { renderQuota(await fetchQuota()); } catch {} } catch (err) { alert('Failed to archive: ' + (err.message || 'Unknown error')); }
             });
-            actions.appendChild(delBtn);
+            actions.appendChild(archBtn);
         }
 
         item.appendChild(actions);

@@ -110,7 +110,7 @@ public class RequestsRepository
         lock (_cacheLock)
         {
             return _requests.Values
-                .Where(r => r.UserId == userId)
+                .Where(r => r.UserId == userId && !r.IsArchived)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToList();
         }
@@ -181,6 +181,7 @@ public class RequestsRepository
         return request;
     }
 
+    /* Commented out — replaced by ArchiveAsync. Will probably reuse later.
     public async Task<bool> DeleteAsync(Guid id)
     {
         bool removed;
@@ -195,6 +196,43 @@ public class RequestsRepository
         }
 
         return removed;
+    }
+    */
+
+    public async Task<MediaRequest?> ArchiveAsync(Guid id)
+    {
+        MediaRequest? request;
+        lock (_cacheLock)
+        {
+            request = _requests.GetValueOrDefault(id);
+            if (request == null)
+            {
+                return null;
+            }
+
+            request.IsArchived = true;
+        }
+
+        await SaveDataAsync().ConfigureAwait(false);
+        return request;
+    }
+
+    public async Task<MediaRequest?> UnarchiveAsync(Guid id)
+    {
+        MediaRequest? request;
+        lock (_cacheLock)
+        {
+            request = _requests.GetValueOrDefault(id);
+            if (request == null)
+            {
+                return null;
+            }
+
+            request.IsArchived = false;
+        }
+
+        await SaveDataAsync().ConfigureAwait(false);
+        return request;
     }
 
     public async Task<MediaRequest?> SnoozeAsync(Guid id, DateTime snoozedUntil, string? reason)
@@ -241,7 +279,7 @@ public class RequestsRepository
     {
         lock (_cacheLock)
         {
-            return _requests.Values.Count(r => r.Status == "pending");
+            return _requests.Values.Count(r => r.Status == "pending" && !r.IsArchived);
         }
     }
 
@@ -249,7 +287,7 @@ public class RequestsRepository
     {
         lock (_cacheLock)
         {
-            return _requests.Values.Count(r => r.UserId == userId && (r.Status == "done" || r.Status == "rejected") && !r.SeenByUser);
+            return _requests.Values.Count(r => r.UserId == userId && (r.Status == "done" || r.Status == "rejected") && !r.SeenByUser && !r.IsArchived);
         }
     }
 
@@ -284,6 +322,7 @@ public class RequestsRepository
         }
     }
 
+    /* Commented out — depends on DeleteAsync which is also commented out.
     public async Task<int> CleanupOldRejectedAsync(int daysOld)
     {
         var cutoff = DateTime.UtcNow.AddDays(-daysOld);
@@ -308,4 +347,5 @@ public class RequestsRepository
 
         return toRemove.Count;
     }
+    */
 }

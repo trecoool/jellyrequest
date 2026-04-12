@@ -39,4 +39,6 @@ public class MediaRequest
     public string SnoozeReason { get; set; } = string.Empty;
 
     public bool SeenByUser { get; set; } = true;
+
+    public bool IsArchived { get; set; }
 }

@@ -27,19 +27,12 @@ public class CleanupService : IScheduledTask
 
     public string Category => "Media Requests";
 
-    public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+    public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
-        var config = Plugin.Instance?.Configuration;
-        if (config == null || config.AutoDeleteRejectedDays <= 0)
-        {
-            _logger.LogInformation("Auto-delete is disabled, skipping cleanup");
-            return;
-        }
-
-        progress.Report(0);
-        var count = await _repository.CleanupOldRejectedAsync(config.AutoDeleteRejectedDays).ConfigureAwait(false);
-        _logger.LogInformation("Cleaned up {Count} old rejected requests", count);
+        // Commented out — CleanupOldRejectedAsync (delete) is disabled in favor of archive.
+        _logger.LogInformation("Cleanup task is disabled (delete replaced by archive)");
         progress.Report(100);
+        return Task.CompletedTask;
     }
 
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
