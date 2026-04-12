@@ -951,6 +951,9 @@
                 const b = document.createElement('button'); b.textContent = 'Unarchive';
                 b.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); renderArchiveList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(b);
+                const resetBtn = document.createElement('button'); resetBtn.className = 'primary'; resetBtn.textContent = 'Reset to Pending';
+                resetBtn.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); if (req.Status !== 'pending') await changeStatus(req.Id, 'pending'); renderArchiveList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(resetBtn);
             } else if (req.Status === 'pending') {
                 const doneBtn = document.createElement('button'); doneBtn.className = 'success'; doneBtn.textContent = 'Done';
                 doneBtn.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
@@ -977,6 +980,9 @@
                 archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(archBtn);
             } else if (req.Status === 'done') {
+                const resetBtn = document.createElement('button'); resetBtn.textContent = 'Reset to Pending';
+                resetBtn.addEventListener('click', async () => { try { await changeStatus(req.Id, 'pending'); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(resetBtn);
                 const archBtn = document.createElement('button'); archBtn.className = 'archive'; archBtn.textContent = 'Archive';
                 archBtn.addEventListener('click', async () => { try { await adminArchiveRequest(req.Id); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(archBtn);
