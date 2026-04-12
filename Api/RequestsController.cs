@@ -379,7 +379,6 @@ public class RequestsController : ControllerBase
         return result != null ? Ok(result) : NotFound();
     }
 
-    /* Commented out — replaced by AdminArchive. Will probably reuse later.
     [HttpDelete("Admin/{id}")]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -389,7 +388,6 @@ public class RequestsController : ControllerBase
         var deleted = await _requestsRepo.DeleteAsync(id).ConfigureAwait(false);
         return deleted ? NoContent() : NotFound();
     }
-    */
 
     [HttpPost("Admin/{id}/Archive")]
     [Authorize(Policy = "RequiresElevation")]

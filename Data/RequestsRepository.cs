@@ -180,7 +180,6 @@ public class RequestsRepository
         return request;
     }
 
-    /* Commented out — replaced by ArchiveAsync. Will probably reuse later.
     public async Task<bool> DeleteAsync(Guid id)
     {
         bool removed;
@@ -196,7 +195,6 @@ public class RequestsRepository
 
         return removed;
     }
-    */
 
     public async Task<MediaRequest?> ArchiveAsync(Guid id)
     {

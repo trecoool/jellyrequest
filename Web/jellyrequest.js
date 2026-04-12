@@ -320,6 +320,7 @@
     async function archiveRequest(id) { return apiFetch(`/MediaRequests/${id}/Archive`, { method: 'POST' }); }
     async function adminArchiveRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}/Archive`, { method: 'POST' }); }
     async function adminUnarchiveRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}/Unarchive`, { method: 'POST' }); }
+    async function adminDeleteRequest(id) { return apiFetch(`/MediaRequests/Admin/${id}`, { method: 'DELETE' }); }
     async function editRequest(id, dto) { return apiFetch(`/MediaRequests/${id}`, { method: 'PUT', body: JSON.stringify(dto) }); }
     async function changeStatus(id, status, mediaLink, rejectionReason) {
         let url = `/MediaRequests/${id}/Status?status=${encodeURIComponent(status)}`;
@@ -955,6 +956,9 @@
                 const resetBtn = document.createElement('button'); resetBtn.className = 'primary'; resetBtn.textContent = 'Reset to Pending';
                 resetBtn.addEventListener('click', async () => { try { await adminUnarchiveRequest(req.Id); if (req.Status !== 'pending') await changeStatus(req.Id, 'pending'); renderArchiveList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(resetBtn);
+                const delBtn = document.createElement('button'); delBtn.className = 'danger'; delBtn.textContent = 'Delete';
+                delBtn.addEventListener('click', async () => { try { await adminDeleteRequest(req.Id); renderArchiveList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                actions.appendChild(delBtn);
             } else if (req.Status === 'pending') {
                 const doneBtn = document.createElement('button'); doneBtn.className = 'success'; doneBtn.textContent = 'Done';
                 doneBtn.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); if (ml === null) return; try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
