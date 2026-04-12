@@ -895,7 +895,7 @@
         const date = new Date(req.CreatedAt).toLocaleDateString();
         const typeBadge = req.Type ? ` \u00b7 ${escapeHtml(req.Type)}` : '';
         const requester = adminMode ? ` \u00b7 by ${escapeHtml(req.Username || 'Unknown')}` : '';
-        const seenTag = (adminMode && req.Status === 'done') ? ` \u00b7 ${req.SeenByUser ? '\u2705 seen' : '\u23f3 unseen'}` : '';
+        const seenTag = (adminMode && (req.Status === 'done' || req.Status === 'rejected')) ? ` \u00b7 ${req.SeenByUser ? '\u2705 seen' : '\u23f3 unseen'}` : '';
         const yearSuffix = req.Year ? ` (${escapeHtml(req.Year)})` : '';
 
         let extraInfo = '';
@@ -957,10 +957,10 @@
                 actions.appendChild(resetBtn);
             } else if (req.Status === 'pending') {
                 const doneBtn = document.createElement('button'); doneBtn.className = 'success'; doneBtn.textContent = 'Done';
-                doneBtn.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                doneBtn.addEventListener('click', async () => { const ml = await showPrompt('Media link (optional):', 'https://...'); if (ml === null) return; try { await changeStatus(req.Id, 'done', ml || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(doneBtn);
                 const rejBtn = document.createElement('button'); rejBtn.className = 'danger'; rejBtn.textContent = 'Reject';
-                rejBtn.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
+                rejBtn.addEventListener('click', async () => { const r = await showPrompt('Rejection reason (optional):', 'Not available'); if (r === null) return; try { await changeStatus(req.Id, 'rejected', undefined, r || undefined); renderAdminList(); updateNotificationBadge(); } catch (e) { alert(e.message); } });
                 actions.appendChild(rejBtn);
                 const snzBtn = document.createElement('button'); snzBtn.className = 'warning'; snzBtn.textContent = 'Snooze';
                 snzBtn.addEventListener('click', async () => {
