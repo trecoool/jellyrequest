@@ -5,6 +5,8 @@ namespace JellyRequest.Configuration;
 public class PluginConfiguration : BasePluginConfiguration
 {
     // === Core ===
+    public bool ShowInAdminMenu { get; set; } = true;
+
     public bool EnableRequests { get; set; } = true;
 
     public bool EnableAdminRequests { get; set; } = false;

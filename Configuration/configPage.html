@@ -15,6 +15,13 @@
 
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label class="emby-checkbox-label">
+                                <input id="ShowInAdminMenu" name="ShowInAdminMenu" type="checkbox" is="emby-checkbox" />
+                                <span>Show in admin sidebar menu (requires restart)</span>
+                            </label>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
                                 <input id="EnableRequests" name="EnableRequests" type="checkbox" is="emby-checkbox" />
                                 <span>Enable Requests</span>
                             </label>
@@ -218,6 +225,7 @@
             };
 
             var configFields = [
+                'ShowInAdminMenu',
                 'EnableRequests', 'EnableAdminRequests', 'MaxRequestsPerMonth', 'AutoDeleteRejectedDays',
                 'RequestWindowTitle', 'RequestWindowDescription', 'RequestSubmitButtonText',
                 'RequestTitleLabel', 'RequestTitlePlaceholder',
@@ -230,6 +238,7 @@
             ];
 
             var checkboxFields = [
+                'ShowInAdminMenu',
                 'EnableRequests', 'EnableAdminRequests',
                 'RequestTypeEnabled', 'RequestTypeRequired',
                 'RequestNotesEnabled', 'RequestNotesRequired',
