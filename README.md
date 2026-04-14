@@ -2,16 +2,13 @@
 
 A Jellyfin plugin that lets users request media and admins manage those requests through a full lifecycle.
 
-This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](https://github.com/K3ntas/jellyfin-plugin-ratings), which bundles ratings, media requests, and several other features into a single monolithic plugin. JellyRequest isolates the media request functionality into a clean, standalone plugin with a focused codebase.
+This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](https://github.com/K3ntas/jellyfin-plugin-ratings) focusing solely on the request system.
 
 ## Features
 
 - Users submit media requests with title, type, notes, IMDB links
-- Full request lifecycle: pending → processing → done / rejected / snoozed
-- Monthly request quotas (configurable, or unlimited)
-- User ban system with optional expiry
-- Automatic cleanup of old rejected requests
-- Fully customizable request form (field labels, placeholders, required fields, custom fields)
+- Full request lifecycle: pending → done / rejected / snoozed → archived
+- Customizable request form (field labels, placeholders, required fields, custom fields)
 - Admin configuration page
 
 ## Requirements
@@ -52,6 +49,17 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 
 ## Installation
 
-1. Build: `dotnet build -c Release`
-2. Copy `JellyRequest.dll` to your Jellyfin plugins directory
-3. Restart Jellyfin
+### Via plugin repository (recommended)
+
+1. In Jellyfin, go to **Dashboard → Plugins → Repositories**.
+2. Click **+** and add:
+   - **Name**: `JellyRequest`
+   - **URL**: `https://raw.githubusercontent.com/trecoool/jellyrequest/master/manifest.json`
+3. Open the **Catalog** tab, find **JellyRequest**, and install it.
+4. Restart Jellyfin.
+
+### Manual install
+
+1. Download the latest `JellyRequest.zip` from the [Releases](https://github.com/trecoool/jellyrequest/releases) page.
+2. Extract `JellyRequest.dll` to `<jellyfin-config>/plugins/JellyRequest/`.
+3. Restart Jellyfin.
