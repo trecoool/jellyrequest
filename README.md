@@ -15,7 +15,7 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 
 | User submits a request | Admin manages requests |
 |---|---|
-| ![New request form](screenshots/new%20request.png) | ![Admin view](screenshots/admin%20view.png) |
+| ![New request form](Screenshots/new%20request.png) | ![Admin view](Screenshots/admin%20view.png) |
 
 ## Requirements
 
