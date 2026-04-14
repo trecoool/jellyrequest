@@ -30,7 +30,7 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 | GET | `/MediaRequests/My` | Your requests |
 | GET | `/MediaRequests/Quota` | Monthly quota status |
 | PUT | `/MediaRequests/{id}` | Edit a pending request |
-| DELETE | `/MediaRequests/{id}` | Delete your request |
+| POST | `/MediaRequests/{id}/Archive` | Archive your request |
 
 ### Admin
 
@@ -40,7 +40,9 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 | POST | `/MediaRequests/{id}/Status` | Change request status |
 | POST | `/MediaRequests/{id}/Snooze` | Snooze a request |
 | POST | `/MediaRequests/{id}/Unsnooze` | Unsnooze → pending |
-| DELETE | `/MediaRequests/Admin/{id}` | Delete any request |
+| POST | `/MediaRequests/Admin/{id}/Archive` | Archive a request |
+| POST | `/MediaRequests/Admin/{id}/Unarchive` | Restore an archived request |
+| DELETE | `/MediaRequests/Admin/{id}` | Permanently delete a request |
 | GET | `/MediaRequests/Bans` | List bans |
 | POST | `/MediaRequests/Bans` | Ban a user |
 | DELETE | `/MediaRequests/Bans/{banId}` | Remove a ban |
@@ -53,17 +55,10 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 
 ## Installation
 
-### Via plugin repository (recommended)
+Build from source and copy the DLL into Jellyfin's plugin folder:
 
-1. In Jellyfin, go to **Dashboard → Plugins → Repositories**.
-2. Click **+** and add:
-   - **Name**: `JellyRequest`
-   - **URL**: `https://raw.githubusercontent.com/trecoool/jellyrequest/master/manifest.json`
-3. Open the **Catalog** tab, find **JellyRequest**, and install it.
-4. Restart Jellyfin.
+```bash
+dotnet build -c Release
+```
 
-### Manual install
-
-1. Download the latest `JellyRequest.zip` from the [Releases](https://github.com/trecoool/jellyrequest/releases) page.
-2. Extract `JellyRequest.dll` to `<jellyfin-config>/plugins/JellyRequest/`.
-3. Restart Jellyfin.
+Copy `bin/Release/net9.0/JellyRequest.dll` to `<jellyfin-config>/plugins/JellyRequest/`, then restart Jellyfin.
