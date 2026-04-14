@@ -11,6 +11,12 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 - Customizable request form (field labels, placeholders, required fields, custom fields)
 - Admin configuration page
 
+## Screenshots
+
+| User submits a request | Admin manages requests |
+|---|---|
+| ![New request form](screenshots/new%20request.png) | ![Admin view](screenshots/admin%20view.png) |
+
 ## Requirements
 
 - Jellyfin 10.11.x
