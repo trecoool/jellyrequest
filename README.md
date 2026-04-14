@@ -55,7 +55,22 @@ This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](ht
 
 ## Installation
 
-Build from source and copy the DLL into Jellyfin's plugin folder:
+### Via plugin repository (recommended)
+
+1. In Jellyfin, go to **Dashboard → Plugins → Repositories**.
+2. Click **+** and add:
+   - **Name**: `JellyRequest`
+   - **URL**: `https://raw.githubusercontent.com/trecoool/jellyrequest/master/manifest.json`
+3. Open the **Catalog** tab, find **JellyRequest**, and install it.
+4. Restart Jellyfin.
+
+### Manual install
+
+1. Download `jellyrequest_1.0.0.0.zip` from the [Releases](https://github.com/trecoool/jellyrequest/releases) page.
+2. Extract `JellyRequest.dll` to `<jellyfin-config>/plugins/JellyRequest/`.
+3. Restart Jellyfin.
+
+### Build from source
 
 ```bash
 dotnet build -c Release
