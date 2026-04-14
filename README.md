@@ -2,7 +2,13 @@
 
 A Jellyfin plugin that lets users request media and admins manage those requests through a full lifecycle.
 
-This project is extracted and rewritten from [K3ntas/jellyfin-plugin-ratings](https://github.com/K3ntas/jellyfin-plugin-ratings) focusing solely on the request system.
+This plugin is a rewriting of [K3ntas/jellyfin-plugin-ratings](https://github.com/K3ntas/jellyfin-plugin-ratings) focusing solely on the request system.
+
+## Disclaimer
+
+I'm a gamedev, not a web dev. This plugin is entirely vibe-coded. Efforts are made to ensure the high level logic is sound, and i use it on my homelab setup. It works reliably for me, but the code may not follow best practices convention regarding Jellyfin plugins or the web in general. Issues and PRs welcome.
+
+Check out my other plugin that handles user ratings: [JellyRate](https://github.com/trecoool/jellyrate).
 
 ## Features
 
