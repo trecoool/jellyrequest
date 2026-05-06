@@ -1018,17 +1018,115 @@
 
     // ── Inline Edit ─────────────────────────────────────────
 
-    function startEdit(listItem, req) {
+    async function startEdit(listItem, req) {
+        let cfg; try { cfg = await fetchConfig(); } catch { cfg = {}; }
+
         listItem.innerHTML = '';
         const form = document.createElement('div'); form.className = 'jellyrequest-edit-form';
-        form.innerHTML = `<input type="text" id="jr-edit-title" value="${escapeHtml(req.Title)}" placeholder="Title"><textarea id="jr-edit-notes" placeholder="Notes">${escapeHtml(req.Notes || '')}</textarea><div class="jellyrequest-edit-actions"><button class="save-btn">Save</button><button class="cancel-btn">Cancel</button></div>`;
-        form.querySelector('.cancel-btn').addEventListener('click', () => renderRequestsList());
-        form.querySelector('.save-btn').addEventListener('click', async () => {
-            const title = document.getElementById('jr-edit-title')?.value.trim();
-            if (!title) { alert('Title is required'); return; }
-            const saveBtn = form.querySelector('.save-btn'); saveBtn.disabled = true;
-            try { await editRequest(req.Id, { Title: title, Notes: document.getElementById('jr-edit-notes')?.value.trim() || null, Type: req.Type || null, ImdbCode: req.ImdbCode || null, ImdbLink: req.ImdbLink || null, Year: req.Year || null }); await renderRequestsList(); } catch (err) { alert('Failed to save: ' + (err.message || 'Unknown error')); saveBtn.disabled = false; }
+
+        const titleField = makeField('input', 'jr-edit-title', cfg.RequestTitleLabel || 'Title', cfg.RequestTitlePlaceholder || '', true);
+        titleField.querySelector('input').value = req.Title || '';
+        form.appendChild(titleField);
+
+        if (cfg.RequestTypeEnabled) {
+            const group = document.createElement('div');
+            const label = document.createElement('label'); label.setAttribute('for', 'jr-edit-type');
+            label.innerHTML = (cfg.RequestTypeLabel || 'Type') + (cfg.RequestTypeRequired ? '<span class="req">*</span>' : '');
+            group.appendChild(label);
+            const select = document.createElement('select'); select.id = 'jr-edit-type';
+            ['', 'Movie', 'TV Series', 'Anime', 'Documentary', 'Other'].forEach(opt => {
+                const o = document.createElement('option'); o.value = opt; o.textContent = opt || '-- Select --';
+                if (opt === (req.Type || '')) o.selected = true;
+                select.appendChild(o);
+            });
+            group.appendChild(select); form.appendChild(group);
+        }
+        if (cfg.RequestImdbCodeEnabled) {
+            const f = makeField('input', 'jr-edit-imdbcode', cfg.RequestImdbCodeLabel || 'IMDB Code', cfg.RequestImdbCodePlaceholder || 'tt1234567', cfg.RequestImdbCodeRequired);
+            f.querySelector('input').value = req.ImdbCode || ''; form.appendChild(f);
+        }
+        if (cfg.RequestImdbLinkEnabled) {
+            const f = makeField('input', 'jr-edit-imdblink', cfg.RequestImdbLinkLabel || 'IMDB Link', cfg.RequestImdbLinkPlaceholder || 'https://www.imdb.com/title/tt...', cfg.RequestImdbLinkRequired);
+            f.querySelector('input').value = req.ImdbLink || ''; form.appendChild(f);
+        }
+        if (cfg.RequestYearEnabled) {
+            const f = makeField('input', 'jr-edit-year', cfg.RequestYearLabel || 'Year', cfg.RequestYearPlaceholder || '2024', cfg.RequestYearRequired);
+            const yearInput = f.querySelector('input');
+            yearInput.value = req.Year || '';
+            yearInput.maxLength = 4; yearInput.inputMode = 'numeric'; yearInput.pattern = '\\d{4}';
+            yearInput.addEventListener('input', () => { yearInput.value = yearInput.value.replace(/\D/g, '').slice(0, 4); });
+            form.appendChild(f);
+        }
+        if (cfg.RequestNotesEnabled) {
+            const f = makeField('textarea', 'jr-edit-notes', cfg.RequestNotesLabel || 'Notes', cfg.RequestNotesPlaceholder || '', cfg.RequestNotesRequired);
+            f.querySelector('textarea').value = req.Notes || ''; form.appendChild(f);
+        }
+
+        let customFieldDefs = null;
+        try { if (cfg.CustomRequestFields) customFieldDefs = JSON.parse(cfg.CustomRequestFields); } catch {}
+        let existingCustom = {};
+        try { if (req.CustomFields) existingCustom = JSON.parse(req.CustomFields); } catch {}
+        if (Array.isArray(customFieldDefs)) {
+            customFieldDefs.forEach((cf, i) => {
+                const tag = cf.type === 'textarea' ? 'textarea' : 'input';
+                const fld = makeField(tag, `jr-edit-custom-${i}`, cf.label || `Custom ${i+1}`, cf.placeholder || '', cf.required || false);
+                fld.querySelector(tag).value = existingCustom[cf.label || `custom_${i}`] || '';
+                form.appendChild(fld);
+            });
+        }
+
+        const msgArea = document.createElement('div'); msgArea.className = 'jellyrequest-edit-msg';
+        form.appendChild(msgArea);
+        const showMsg = (text, type) => { msgArea.innerHTML = `<div class="jellyrequest-msg ${type}">${escapeHtml(text)}</div>`; };
+
+        const actions = document.createElement('div'); actions.className = 'jellyrequest-edit-actions';
+        const saveBtn = document.createElement('button'); saveBtn.className = 'save-btn'; saveBtn.textContent = 'Save';
+        const cancelBtn = document.createElement('button'); cancelBtn.className = 'cancel-btn'; cancelBtn.textContent = 'Cancel';
+        actions.appendChild(saveBtn); actions.appendChild(cancelBtn); form.appendChild(actions);
+
+        cancelBtn.addEventListener('click', () => renderRequestsList());
+
+        saveBtn.addEventListener('click', async () => {
+            const title = (document.getElementById('jr-edit-title')?.value || '').trim();
+            const type = document.getElementById('jr-edit-type')?.value || '';
+            const notes = (document.getElementById('jr-edit-notes')?.value || '').trim();
+            const imdbCode = (document.getElementById('jr-edit-imdbcode')?.value || '').trim();
+            const imdbLink = (document.getElementById('jr-edit-imdblink')?.value || '').trim();
+            const year = (document.getElementById('jr-edit-year')?.value || '').trim();
+
+            if (!title) { showMsg('Title is required.', 'error'); return; }
+            if (cfg.RequestTypeEnabled && cfg.RequestTypeRequired && !type) { showMsg('Type is required.', 'error'); return; }
+            if (cfg.RequestNotesEnabled && cfg.RequestNotesRequired && !notes) { showMsg('Notes are required.', 'error'); return; }
+            if (cfg.RequestImdbCodeEnabled && cfg.RequestImdbCodeRequired && !imdbCode) { showMsg('IMDB Code is required.', 'error'); return; }
+            if (cfg.RequestImdbLinkEnabled && cfg.RequestImdbLinkRequired && !imdbLink) { showMsg('IMDB Link is required.', 'error'); return; }
+            if (cfg.RequestYearEnabled && cfg.RequestYearRequired && !year) { showMsg('Year is required.', 'error'); return; }
+            if (imdbCode && !/^tt\d+$/.test(imdbCode)) { showMsg('IMDB Code must match format: tt1234567', 'error'); return; }
+            if (year && !/^\d{4}$/.test(year)) { showMsg('Year must be 4 digits.', 'error'); return; }
+
+            let customFieldsOut = null;
+            if (Array.isArray(customFieldDefs)) {
+                customFieldsOut = {};
+                for (let i = 0; i < customFieldDefs.length; i++) {
+                    const cf = customFieldDefs[i];
+                    const v = (document.getElementById(`jr-edit-custom-${i}`)?.value || '').trim();
+                    if (cf.required && !v) { showMsg(`${cf.label || 'Custom field'} is required.`, 'error'); return; }
+                    if (v) customFieldsOut[cf.label || `custom_${i}`] = v;
+                }
+            }
+
+            const dto = { Title: title };
+            if (type) dto.Type = type;
+            if (notes) dto.Notes = notes;
+            if (imdbCode) dto.ImdbCode = imdbCode;
+            if (imdbLink) dto.ImdbLink = imdbLink;
+            if (year) dto.Year = year;
+            if (customFieldsOut && Object.keys(customFieldsOut).length > 0) dto.CustomFields = JSON.stringify(customFieldsOut);
+
+            saveBtn.disabled = true;
+            try { await editRequest(req.Id, dto); await renderRequestsList(); }
+            catch (err) { showMsg(err.message || 'Could not save changes.', 'error'); saveBtn.disabled = false; }
         });
+
         listItem.appendChild(form);
     }
 
