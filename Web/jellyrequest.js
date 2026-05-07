@@ -65,7 +65,8 @@
             /* Overlay */
             .jellyrequest-overlay {
                 position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
+                top: 0; left: 0;
+                width: 100vw; height: 100vh;
                 background: rgba(0,0,0,0.7);
                 z-index: 10000;
                 display: flex;
@@ -81,7 +82,7 @@
                 border-radius: 10px;
                 width: 90%;
                 max-width: 620px;
-                max-height: 85vh;
+                max-height: 95%;
                 overflow-y: auto;
                 box-shadow: 0 8px 40px rgba(0,0,0,0.6);
                 animation: jellyrequest-slidein 0.25s ease;
@@ -114,6 +115,7 @@
             .jellyrequest-tab:hover:not(.active) { color: rgba(255,255,255,0.8); }
 
             /* Form */
+            .jellyrequest-form { padding-bottom: 600px; }
             .jellyrequest-form label { display: block; margin-bottom: 4px; font-size: 0.85em; color: rgba(255,255,255,0.7); }
             .jellyrequest-form label .req { color: #e74c3c; margin-left: 2px; }
             .jellyrequest-form input, .jellyrequest-form select, .jellyrequest-form textarea {
@@ -187,6 +189,7 @@
             .jellyrequest-list-actions button.archive:hover { background: rgba(128,128,128,0.15); }
             .jellyrequest-empty { text-align: center; padding: 24px; color: rgba(255,255,255,0.4); font-size: 0.9em; }
 
+            .jellyrequest-edit-form { padding-bottom: 600px; }
             .jellyrequest-edit-form input, .jellyrequest-edit-form textarea, .jellyrequest-edit-form select {
                 width: 100%; padding: 6px 8px; margin-bottom: 6px;
                 border: 1px solid rgba(255,255,255,0.15); border-radius: 3px;
@@ -616,6 +619,42 @@
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
 
+        if (window.visualViewport) {
+            const vv = window.visualViewport;
+            const vk = ('virtualKeyboard' in navigator) ? navigator.virtualKeyboard : null;
+            const vkWasOverlay = vk ? vk.overlaysContent : false;
+            if (vk) vk.overlaysContent = true;
+            const syncOverlay = () => {
+                const kbH = (vk && vk.boundingRect && vk.boundingRect.height > 0) ? vk.boundingRect.height : 0;
+                const height = Math.max(0, vv.height - kbH);
+                overlay.style.top    = vv.offsetTop + 'px';
+                overlay.style.left   = vv.offsetLeft + 'px';
+                overlay.style.width  = vv.width + 'px';
+                overlay.style.height = height + 'px';
+                panel.style.maxHeight = Math.max(0, height - 24) + 'px';
+                console.debug('[JR] sync', { vvH: vv.height, vvT: vv.offsetTop, kbH, setH: height });
+            };
+            syncOverlay();
+            vv.addEventListener('resize', syncOverlay);
+            vv.addEventListener('scroll', syncOverlay);
+            if (vk) vk.addEventListener('geometrychange', syncOverlay);
+            overlay.__jrVVCleanup = () => {
+                vv.removeEventListener('resize', syncOverlay);
+                vv.removeEventListener('scroll', syncOverlay);
+                if (vk) {
+                    vk.removeEventListener('geometrychange', syncOverlay);
+                    vk.overlaysContent = vkWasOverlay;
+                }
+            };
+        }
+
+        overlay.addEventListener('focusin', (e) => {
+            const t = e.target;
+            if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') {
+                setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200);
+            }
+        });
+
         panel.querySelector('.jellyrequest-close').addEventListener('click', closeModal);
 
         const allTabIds = ['form', 'list', 'admin', 'archive'];
@@ -637,7 +676,10 @@
 
     function closeModal() {
         const overlay = document.getElementById('jellyrequest-modal');
-        if (overlay) overlay.remove();
+        if (overlay) {
+            if (overlay.__jrVVCleanup) overlay.__jrVVCleanup();
+            overlay.remove();
+        }
         modalOpen = false;
         document.body.style.overflow = '';
         document.removeEventListener('keydown', escapeHandler);
