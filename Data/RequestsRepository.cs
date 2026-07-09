@@ -208,6 +208,13 @@ public class RequestsRepository
             }
 
             request.IsArchived = true;
+
+            if (request.Status == "snoozed")
+            {
+                request.Status = "pending";
+                request.SnoozedUntil = null;
+                request.SnoozeReason = string.Empty;
+            }
         }
 
         await SaveDataAsync().ConfigureAwait(false);
@@ -270,6 +277,31 @@ public class RequestsRepository
 
         await SaveDataAsync().ConfigureAwait(false);
         return request;
+    }
+
+    public async Task UnsnoozeExpiredAsync()
+    {
+        bool changed;
+        lock (_cacheLock)
+        {
+            changed = false;
+            var now = DateTime.UtcNow;
+            foreach (var request in _requests.Values)
+            {
+                if (request.Status == "snoozed" && request.SnoozedUntil.HasValue && request.SnoozedUntil.Value.ToUniversalTime() <= now)
+                {
+                    request.Status = "pending";
+                    request.SnoozedUntil = null;
+                    request.SnoozeReason = string.Empty;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            await SaveDataAsync().ConfigureAwait(false);
+        }
     }
 
     public int GetPendingCount()

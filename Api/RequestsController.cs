@@ -161,6 +161,7 @@ public class RequestsController : ControllerBase
     public async Task<ActionResult<List<MediaRequest>>> GetMyRequests()
     {
         var userId = (await GetAuthInfoAsync().ConfigureAwait(false)).UserId;
+        await _requestsRepo.UnsnoozeExpiredAsync().ConfigureAwait(false);
         var requests = _requestsRepo.GetByUser(userId);
         var config = Config;
 
@@ -196,6 +197,11 @@ public class RequestsController : ControllerBase
         var auth = await GetAuthInfoAsync().ConfigureAwait(false);
         var userId = auth.UserId;
         var isAdmin = auth.User?.HasPermission(PermissionKind.IsAdministrator) ?? false;
+
+        if (isAdmin)
+        {
+            await _requestsRepo.UnsnoozeExpiredAsync().ConfigureAwait(false);
+        }
 
         var count = isAdmin
             ? _requestsRepo.GetPendingCount()
@@ -325,8 +331,9 @@ public class RequestsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = "RequiresElevation")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<List<MediaRequest>> GetAllRequests()
+    public async Task<ActionResult<List<MediaRequest>>> GetAllRequests()
     {
+        await _requestsRepo.UnsnoozeExpiredAsync().ConfigureAwait(false);
         return Ok(_requestsRepo.GetAll());
     }
 
