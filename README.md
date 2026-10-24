@@ -72,7 +72,7 @@ Check out my other plugin that handles user ratings: [JellyRate](https://github.
 
 ### Manual install
 
-1. Download `jellyrequest_1.0.0.0.zip` from the [Releases](https://github.com/trecoool/jellyrequest/releases) page.
+1. Download the latest `jellyrequest_<version>.zip` from the [Releases](https://github.com/trecoool/jellyrequest/releases) page.
 2. Extract `JellyRequest.dll` to `<jellyfin-config>/plugins/JellyRequest/`.
 3. Restart Jellyfin.
 
