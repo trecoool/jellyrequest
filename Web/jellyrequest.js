@@ -2,8 +2,6 @@
     'use strict';
 
     const INIT_TIMEOUT = 2000;
-    const BUTTON_RETRY_MAX = 10;
-    const BUTTON_RETRY_INTERVAL = 1000;
     const NOTIFY_AUTH_RETRY_DELAY = 250;
     const NOTIFY_AUTH_MAX_ATTEMPTS = 20;
 
@@ -44,6 +42,19 @@
                 height: 18px;
                 fill: currentColor;
             }
+            /* Jellyfin 12 header: borderless, sits among the native MUI toolbar buttons */
+            .jellyrequest-btn--modern {
+                border: none;
+                border-radius: 18px;
+                padding: 6px 12px;
+                margin: 0 4px;
+                gap: 6px;
+                color: inherit;
+                font-size: 0.95em;
+            }
+            .jellyrequest-btn--modern:hover { background: rgba(255,255,255,0.08); color: inherit; }
+            .jellyrequest-btn--modern svg { width: 20px; height: 20px; }
+            .jellyrequest-btn--modern .jellyrequest-notify { top: -2px; right: -2px; }
             .jellyrequest-notify {
                 position: absolute;
                 top: -6px;
@@ -292,7 +303,7 @@
         const base = getBaseUrl();
         const auth = getAuthHeader();
         const headers = { ...(options.headers || {}) };
-        if (auth) headers['X-Emby-Authorization'] = auth;
+        if (auth) headers.Authorization = auth;
         if (options.body && typeof options.body === 'string') headers['Content-Type'] = 'application/json';
         const resp = await fetch(`${base}${path}`, { cache: 'no-store', ...options, headers });
         if (!resp.ok) {
@@ -422,6 +433,14 @@
         const suffix = (day >= 11 && day <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][day % 10] || 'th');
         return `${months[date.getMonth()]} ${day}${suffix} ${date.getFullYear()}`;
     }
+    // "2026/07/29 14:05" — zero-padded, 24h, local time. Built manually rather than
+    // via toLocaleString so the field order and 12/24h form don't shift with browser locale.
+    function formatDateTime(d) {
+        const date = d instanceof Date ? d : new Date(d);
+        if (isNaN(date.getTime())) return '';
+        const p = n => String(n).padStart(2, '0');
+        return `${date.getFullYear()}/${p(date.getMonth() + 1)}/${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}`;
+    }
 
     // ── Notification Badge ──────────────────────────────────
     //
@@ -526,7 +545,7 @@
         let clickPending = false;
         document.addEventListener('click', (e) => {
             if (clickPending) return;
-            if (!e.target.closest('.skinHeader, .mainDrawer, .navMenuOption')) return;
+            if (!e.target.closest('.skinHeader, .mainDrawer, .navMenuOption, .MuiAppBar-root, .MuiDrawer-root')) return;
             clickPending = true;
             queueMicrotask(() => { clickPending = false; updateNotificationBadge(); });
         }, true);
@@ -536,23 +555,80 @@
 
     function isVideoPlaying() { const v = document.querySelector('video'); return v && !v.paused; }
 
-    function injectHeaderButton(attempt = 0) {
-        if (document.querySelector('.jellyrequest-btn')) return;
-        const header = document.querySelector('.skinHeader .headerRight') || document.querySelector('.skinHeader') || document.querySelector('.headerTabs');
-        if (!header) { if (attempt < BUTTON_RETRY_MAX) setTimeout(() => injectHeaderButton(attempt + 1), BUTTON_RETRY_INTERVAL); return; }
+    // Rendered, not just present: Jellyfin 12 keeps an empty legacy .skinHeader in
+    // the DOM inside a display:none wrapper, so matching a selector proves nothing.
+    function isRendered(el) {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+    }
+
+    // Jellyfin 12 draws the header as an MUI AppBar; 10.x used .skinHeader > .headerRight.
+    // The video OSD is also an AppBar, so it is excluded by name.
+    function findHeaderTarget() {
+        const toolbars = Array.from(document.querySelectorAll('.MuiAppBar-root .MuiToolbar-root'))
+            .filter(tb => !tb.closest('.osdHeader') && isRendered(tb));
+        const toolbar = toolbars.find(tb => tb.querySelector('button[aria-haspopup="true"]')) || toolbars[0];
+        if (toolbar) return { toolbar };
+        const legacy = document.querySelector('.skinHeader .headerRight');
+        return isRendered(legacy) ? { legacy } : null;
+    }
+
+    // Direct child of the toolbar holding the user avatar, our anchor to sit left of it.
+    function findUserMenuSlot(toolbar) {
+        const popups = toolbar.querySelectorAll('button[aria-haspopup="true"]');
+        let slot = popups[popups.length - 1];
+        while (slot && slot.parentElement !== toolbar) slot = slot.parentElement;
+        return slot || null;
+    }
+
+    // Head of the right-aligned action cluster (search / syncplay / cast), which is
+    // the toolbar's flex-grow child. Positional, so no reliance on translated labels.
+    function placeInToolbar(toolbar, btn) {
+        const actions = Array.from(toolbar.children)
+            .find(el => getComputedStyle(el).flexGrow === '1');
+        if (actions) { actions.insertBefore(btn, actions.firstChild); return; }
+        const slot = findUserMenuSlot(toolbar);
+        if (slot) toolbar.insertBefore(btn, slot);
+        else toolbar.appendChild(btn);
+    }
+
+    function injectHeaderButton() {
+        const existing = document.querySelector('.jellyrequest-btn');
+        // Keep it only while its host is still on screen — a React remount or the
+        // hidden legacy header leaves an orphan that would pass a presence check.
+        if (existing && existing.isConnected && isRendered(existing.parentElement)) return;
+        if (existing) existing.remove();
+
+        const target = findHeaderTarget();
+        if (!target) return;
 
         const btn = document.createElement('button');
-        btn.className = 'jellyrequest-btn';
+        btn.className = target.toolbar ? 'jellyrequest-btn jellyrequest-btn--modern' : 'jellyrequest-btn';
         btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> Request`;
         btn.title = 'Request Media';
+        btn.setAttribute('aria-label', 'Request Media');
         btn.addEventListener('click', openModal);
 
-        const headerRight = header.classList.contains('headerRight') ? header : header.querySelector('.headerRight');
-        if (headerRight) headerRight.insertBefore(btn, headerRight.firstChild);
-        else header.appendChild(btn);
+        if (target.toolbar) placeInToolbar(target.toolbar, btn);
+        else target.legacy.insertBefore(btn, target.legacy.firstChild);
 
+        updateButtonVisibility();
         // Wire up event-driven badge updates after button is injected
         startBadgeUpdates();
+    }
+
+    // The JF12 header is a React subtree that remounts on navigation, taking the
+    // button with it. Reinject on the next frame after any DOM change.
+    let injectScheduled = false;
+    function watchHeader() {
+        if (window.__jellyrequestHeaderWatched) return;
+        window.__jellyrequestHeaderWatched = true;
+        new MutationObserver(() => {
+            if (injectScheduled) return;
+            injectScheduled = true;
+            requestAnimationFrame(() => { injectScheduled = false; injectHeaderButton(); });
+        }).observe(document.body, { childList: true, subtree: true });
     }
 
     function updateButtonVisibility() {
@@ -935,7 +1011,7 @@
         item.dataset.id = req.Id;
 
         const statusClass = (req.Status || 'pending').toLowerCase();
-        const date = new Date(req.CreatedAt).toLocaleDateString();
+        const date = formatDateTime(req.CreatedAt);
         const typeBadge = req.Type ? ` \u00b7 ${escapeHtml(req.Type)}` : '';
         const requester = adminMode ? ` \u00b7 by ${escapeHtml(req.Username || 'Unknown')}` : '';
         const seenTag = (adminMode && (req.Status === 'done' || req.Status === 'rejected')) ? ` \u00b7 ${req.SeenByUser ? '\u2705 seen' : '\u23f3 unseen'}` : '';
@@ -1183,9 +1259,10 @@
         // Example: await window.__jellyrequest.fetchNotifications()
         window.__jellyrequest = { fetchNotifications, updateNotificationBadge, get isAdmin() { return isAdmin; } };
 
+        watchHeader();
         setInterval(() => {
             updateButtonVisibility();
-            if (!document.querySelector('.jellyrequest-btn')) injectHeaderButton();
+            injectHeaderButton();
         }, 2000);
     }
 
