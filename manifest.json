@@ -9,7 +9,7 @@
     "versions": [
       {
         "version": "1.0.2.0",
-        "changelog": "Changes since 1.0.0.0:\n- Edit form rebuilt: shows every configured field (type, IMDB code and link, year, notes, custom fields) with the same validation as new requests, no longer rejects requests with empty optional fields, and shows errors inline.\n- Mobile: the request window fits above the on-screen keyboard and the focused field scrolls into view.\n- Snoozed requests return to pending automatically when their snooze date passes; archiving a request clears its snooze.\n- Request button works in the Jellyfin 12 header and comes back after the header re-renders; the older header is still supported.\n- Uses the standard Authorization header instead of the legacy X-Emby-Authorization.\n- Request dates shown as YYYY/MM/DD HH:MM, whatever the browser locale.",
+        "changelog": "- Request button works in the Jellyfin 12 header and comes back after the header re-renders; the older header is still supported.\n- Uses the standard Authorization header instead of the legacy X-Emby-Authorization.\n- Request dates shown as YYYY/MM/DD HH:MM, whatever the browser locale.",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/trecoool/jellyrequest/releases/download/v1.0.2.0/jellyrequest_1.0.2.0.zip",
         "checksum": "c4d4b2a0576afec3d3657e7cf5d98dd3",
@@ -17,7 +17,7 @@
       },
       {
         "version": "1.0.1.0",
-        "changelog": "Changes since 1.0.0.0:\n- Edit form rebuilt: shows every configured field (type, IMDB code and link, year, notes, custom fields) with the same validation as new requests, no longer rejects requests with empty optional fields, and shows errors inline.\n- Mobile: the request window fits above the on-screen keyboard and the focused field scrolls into view.\n- Snoozed requests return to pending automatically when their snooze date passes; archiving a request clears its snooze.",
+        "changelog": "- Edit form rebuilt: shows every configured field (type, IMDB code and link, year, notes, custom fields) with the same validation as new requests, no longer rejects requests with empty optional fields, and shows errors inline.\n- Mobile: the request window fits above the on-screen keyboard and the focused field scrolls into view.\n- Snoozed requests return to pending automatically when their snooze date passes; archiving a request clears its snooze.",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://github.com/trecoool/jellyrequest/releases/download/v1.0.1.0/jellyrequest_1.0.1.0.zip",
         "checksum": "7807be76c8816c7661655efbebb74341",
