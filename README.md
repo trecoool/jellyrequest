@@ -4,18 +4,13 @@ A Jellyfin plugin that lets users request media and admins manage those requests
 
 This plugin is a rewriting of [K3ntas/jellyfin-plugin-ratings](https://github.com/K3ntas/jellyfin-plugin-ratings) focusing solely on the request system.
 
-## Disclaimer
-
-I'm a gamedev, not a webdev. This plugin is entirely vibe-coded. Despite my best efforts to ensure that what happens is sound, the code may not follow best practices convention regarding Jellyfin plugins or the web in general. Issues and PRs welcome. I use it and test it regularly on my homelab setup, it works reliably for me.
-
-Check out my other plugin that handles user ratings: [JellyRate](https://github.com/trecoool/jellyrate).
-
 ## Features
 
 - Users submit media requests with title, type, notes, IMDB links
 - Full request lifecycle: pending → done / rejected / snoozed → archived
 - Customizable request form (field labels, placeholders, required fields, custom fields)
 - Admin configuration page
+- Check out my other plugins: [JellyRate](https://github.com/trecoool/jellyrate) and [JellyPrecache](https://github.com/trecoool/jellyprecache).
 
 ## Screenshots
 
