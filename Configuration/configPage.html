@@ -63,6 +63,11 @@
                             <label class="inputLabel inputLabelUnfocused" for="RequestSubmitButtonText">Submit Button Text</label>
                             <input id="RequestSubmitButtonText" name="RequestSubmitButtonText" type="text" is="emby-input" />
                         </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RequestConfirmText">Confirmation Checkbox Text</label>
+                            <input id="RequestConfirmText" name="RequestConfirmText" type="text" is="emby-input" />
+                            <div class="fieldDescription">If set, users must tick this checkbox before submitting. HTML allowed (e.g. &lt;b&gt;).</div>
+                        </div>
                     </div>
 
                     <!-- Field: Title -->
@@ -227,7 +232,7 @@
             var configFields = [
                 'ShowInAdminMenu',
                 'EnableRequests', 'EnableAdminRequests', 'MaxRequestsPerMonth', 'AutoDeleteRejectedDays',
-                'RequestWindowTitle', 'RequestWindowDescription', 'RequestSubmitButtonText',
+                'RequestWindowTitle', 'RequestWindowDescription', 'RequestSubmitButtonText', 'RequestConfirmText',
                 'RequestTitleLabel', 'RequestTitlePlaceholder',
                 'RequestTypeEnabled', 'RequestTypeRequired', 'RequestTypeLabel',
                 'RequestNotesEnabled', 'RequestNotesRequired', 'RequestNotesLabel', 'RequestNotesPlaceholder',

@@ -126,7 +126,8 @@
             .jellyrequest-tab:hover:not(.active) { color: rgba(255,255,255,0.8); }
 
             /* Form */
-            .jellyrequest-form { padding-bottom: 600px; }
+            /* Touch only: room to scroll a focused field above the on-screen keyboard */
+            @media (pointer: coarse) { .jellyrequest-form, .jellyrequest-edit-form { padding-bottom: 600px; } }
             .jellyrequest-form label { display: block; margin-bottom: 4px; font-size: 0.85em; color: rgba(255,255,255,0.7); }
             .jellyrequest-form label .req { color: #e74c3c; margin-left: 2px; }
             .jellyrequest-form input, .jellyrequest-form select, .jellyrequest-form textarea {
@@ -140,6 +141,8 @@
             }
             .jellyrequest-form textarea { resize: vertical; min-height: 60px; }
             .jellyrequest-form .jellyrequest-desc { color: rgba(255,255,255,0.5); font-size: 0.8em; margin-bottom: 16px; }
+            .jellyrequest-form label.jellyrequest-checkbox { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 12px; font-size: 0.9em; color: #eee; cursor: pointer; }
+            .jellyrequest-form .jellyrequest-checkbox input { width: auto; margin: 2px 0 0; flex-shrink: 0; cursor: pointer; }
             .jellyrequest-submit {
                 width: 100%; padding: 10px; background: #00a4dc; color: #fff;
                 border: none; border-radius: 4px; cursor: pointer; font-size: 1em; font-weight: 600;
@@ -200,7 +203,6 @@
             .jellyrequest-list-actions button.archive:hover { background: rgba(128,128,128,0.15); }
             .jellyrequest-empty { text-align: center; padding: 24px; color: rgba(255,255,255,0.4); font-size: 0.9em; }
 
-            .jellyrequest-edit-form { padding-bottom: 600px; }
             .jellyrequest-edit-form input, .jellyrequest-edit-form textarea, .jellyrequest-edit-form select {
                 width: 100%; padding: 6px 8px; margin-bottom: 6px;
                 border: 1px solid rgba(255,255,255,0.15); border-radius: 3px;
@@ -724,8 +726,10 @@
             };
         }
 
+        // Touch only: center the focused text field above the keyboard
         overlay.addEventListener('focusin', (e) => {
             const t = e.target;
+            if (!window.matchMedia('(pointer: coarse)').matches || t.type === 'checkbox') return;
             if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') {
                 setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200);
             }
@@ -826,8 +830,18 @@
             try { const cf = JSON.parse(cfg.CustomRequestFields); if (Array.isArray(cf)) cf.forEach((f, i) => form.appendChild(makeField(f.type === 'textarea' ? 'textarea' : 'input', `jr-custom-${i}`, f.label || `Custom ${i+1}`, f.placeholder || '', f.required || false))); } catch {}
         }
 
-        const msgArea = document.createElement('div'); msgArea.id = 'jellyrequest-form-msg'; form.appendChild(msgArea);
         const submitBtn = document.createElement('button'); submitBtn.className = 'jellyrequest-submit';
+        // Admin-set confirmation checkbox (HTML allowed); submit stays disabled until ticked
+        if (cfg.RequestConfirmText) {
+            const confirmLabel = document.createElement('label'); confirmLabel.className = 'jellyrequest-checkbox';
+            const confirmBox = document.createElement('input'); confirmBox.type = 'checkbox'; confirmBox.id = 'jr-confirm';
+            const confirmText = document.createElement('span'); confirmText.innerHTML = cfg.RequestConfirmText;
+            confirmLabel.append(confirmBox, confirmText); form.appendChild(confirmLabel);
+            confirmBox.addEventListener('change', () => { submitBtn.disabled = !confirmBox.checked; });
+            submitBtn.disabled = true;
+        }
+
+        const msgArea = document.createElement('div'); msgArea.id = 'jellyrequest-form-msg'; form.appendChild(msgArea);
         submitBtn.textContent = cfg.RequestSubmitButtonText || 'Submit Request';
         submitBtn.addEventListener('click', () => handleSubmit(cfg, submitBtn));
         form.appendChild(submitBtn);
@@ -859,7 +873,9 @@
         const imdbLink = (document.getElementById('jr-imdblink')?.value || '').trim();
         const year = (document.getElementById('jr-year')?.value || '').trim();
 
+        const confirmBox = document.getElementById('jr-confirm');
         if (!title) { showFormMsg('Title is required.', 'error'); return; }
+        if (confirmBox && !confirmBox.checked) return;
         if (cfg.RequestTypeEnabled && cfg.RequestTypeRequired && !type) { showFormMsg('Type is required.', 'error'); return; }
         if (cfg.RequestNotesEnabled && cfg.RequestNotesRequired && !notes) { showFormMsg('Notes are required.', 'error'); return; }
         if (cfg.RequestImdbCodeEnabled && cfg.RequestImdbCodeRequired && !imdbCode) { showFormMsg('IMDB Code is required.', 'error'); return; }
@@ -884,9 +900,10 @@
             await createRequest(dto);
             showFormMsg('Request submitted!', 'success');
             ['jr-title', 'jr-type', 'jr-notes', 'jr-imdbcode', 'jr-imdblink', 'jr-year'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            if (confirmBox) confirmBox.checked = false;
             try { renderQuota(await fetchQuota()); } catch {}
         } catch (err) { showFormMsg(err.message || 'Failed to submit request.', 'error'); }
-        finally { submitBtn.disabled = false; }
+        finally { submitBtn.disabled = !!confirmBox && !confirmBox.checked; }
     }
 
     // ── My Requests List ────────────────────────────────────

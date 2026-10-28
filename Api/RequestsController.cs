@@ -477,6 +477,7 @@ public class RequestsController : ControllerBase
             config.RequestWindowTitle,
             config.RequestWindowDescription,
             config.RequestSubmitButtonText,
+            config.RequestConfirmText,
             config.RequestTitleLabel,
             config.RequestTitlePlaceholder,
             config.RequestTypeEnabled,

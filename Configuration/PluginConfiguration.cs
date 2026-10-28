@@ -22,6 +22,9 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public string RequestSubmitButtonText { get; set; } = string.Empty;
 
+    // Non-empty = checkbox (HTML label) that must be ticked before submitting
+    public string RequestConfirmText { get; set; } = string.Empty;
+
     // === Title field ===
     public string RequestTitleLabel { get; set; } = string.Empty;
 
